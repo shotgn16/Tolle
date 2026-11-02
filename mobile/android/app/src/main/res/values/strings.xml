@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Tolle</string>
+    <string name="title_activity_main">Tolle</string>
+    <string name="package_name">io.github.shotgn16.tolle</string>
+    <string name="custom_url_scheme">io.github.shotgn16.tolle</string>
+</resources>

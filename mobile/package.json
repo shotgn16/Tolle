@@ -1,0 +1,23 @@
+{
+  "name": "tolle-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tolle \u2013 Android & iOS apps (Capacitor shell around the Tolle web app)",
+  "scripts": {
+    "copy-web": "node scripts/copy-web.mjs",
+    "sync": "npm run copy-web && npx cap sync",
+    "android": "npm run sync && npx cap open android",
+    "ios": "npm run sync && npx cap open ios",
+    "icons": "npx @capacitor/assets generate --iconBackgroundColor '#2b2118' --splashBackgroundColor '#f6f7f9' --splashBackgroundColorDark '#0e1116'"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/ios": "^8.6.0",
+    "@capacitor/local-notifications": "^8.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.0"
+  }
+}

@@ -1,0 +1,28 @@
+# Standalone Docker image (no Home Assistant needed)
+FROM python:3.13-slim
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng poppler-utils \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY app/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+COPY app/ /app/
+
+RUN mkdir -p /data
+# Runs as root by default so a fresh ./data bind-mount just works.
+# To run as an unprivileged user, set `user: "1000:1000"` in docker-compose.yml and `chown 1000:1000 ./data`.
+
+ENV TOLLE_DATA_DIR=/data \
+    TOLLE_PORT=8099 \
+    PYTHONUNBUFFERED=1
+
+EXPOSE 8099
+VOLUME ["/data"]
+HEALTHCHECK --interval=60s --timeout=5s --start-period=20s \
+  CMD python3 -c "import urllib.request,ssl,os;c=ssl._create_unverified_context();p=os.environ.get('TOLLE_PORT','8099');\
+s='https' if os.path.exists('/data/ssl/cert.pem') else 'http';urllib.request.urlopen(f'{s}://127.0.0.1:{p}/api/health',context=c)" || exit 1
+
+CMD ["python3", "-m", "server"]

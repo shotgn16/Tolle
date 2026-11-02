@@ -1,0 +1,29 @@
+# runtime data – never commit (contains your encrypted notes and the key)
+data/
+tolle/app/data/
+*.db
+secret.key
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# mobile – the native projects are committed; build output is not
+mobile/node_modules/
+mobile/www/
+mobile/android/app/build/
+mobile/android/build/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/app/src/main/assets/public/
+mobile/ios/App/build/
+mobile/ios/App/App/public/
+mobile/ios/DerivedData/
+*.keystore
+*.jks
+
+# misc
+.DS_Store
+ollama/

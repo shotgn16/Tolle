@@ -1,0 +1,26 @@
+# Run Tolle with Docker (no Home Assistant needed):
+#   docker compose up -d
+# then open http://<server-ip>:8099 and create your account.
+services:
+  tolle:
+    build:
+      context: ./tolle
+      dockerfile: Dockerfile.standalone
+    # or use the published image instead of building:
+    # image: ghcr.io/shotgn16/tolle:latest
+    container_name: tolle
+    restart: unless-stopped
+    ports:
+      - "8099:8099"          # the only setting outside the app – change the left number to use another port
+    volumes:
+      - ./data:/data         # encrypted database, uploads and secret.key – back this up
+    environment:
+      - TZ=Europe/London
+    # user: "1000:1000"      # optional: run unprivileged (first run: mkdir data && sudo chown 1000:1000 data)
+    # Optional: run Ollama alongside Tolle (then set the Ollama URL in Settings → AI to http://ollama:11434)
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: ollama
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./ollama:/root/.ollama

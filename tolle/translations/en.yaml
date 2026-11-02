@@ -1,0 +1,2 @@
+network:
+  8099/tcp: Direct access port for the Tolle mobile apps and other devices (optional – the sidebar works without it)

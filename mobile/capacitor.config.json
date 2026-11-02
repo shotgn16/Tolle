@@ -1,0 +1,16 @@
+{
+  "appId": "io.github.shotgn16.tolle",
+  "appName": "Tolle",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "iconColor": "#0F766E"
+    }
+  }
+}
