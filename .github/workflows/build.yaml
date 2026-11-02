@@ -30,7 +30,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Read version from add-on config
         id: v
-        run: echo "version=$(grep -E '^version:' tolle/config.yaml | sed -E 's/version: *"?([^"]+)"?/\1/')" >> "$GITHUB_OUTPUT"
+        run: |
+          VERSION=$(grep -E '^version:' tolle/config.yaml | sed -E 's/version: *"?([^"]+)"?/\1/')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
       - name: Lower-case owner
         id: o
         run: echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
