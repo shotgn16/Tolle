@@ -54,7 +54,11 @@ function aiTab(root) {
 
   const PFIELDS = {
     ollama: () => [field('Ollama URL', inp('ollama.url', 'url', 'http://homeassistant.local:11434'),
-      'Ollama must listen on the network (OLLAMA_HOST=0.0.0.0). Thinking works with models such as qwen3, deepseek-r1, gpt-oss.')],
+      'Ollama must listen on the network (OLLAMA_HOST=0.0.0.0). Thinking works with models such as qwen3, deepseek-r1, gpt-oss.'),
+    h('div', { class: 'grid two' },
+      field('Context window (tokens)', inp('ollama.num_ctx', 'number'),
+        'How much the model can hold at once. 16384 suits most studies; lower it to 8192 on an 8 GB machine, raise it for In-depth studies on bigger ones.'),
+      field('Longest answer (tokens)', inp('ollama.max_output_tokens', 'number'), 'About 0.75 words per token.'))],
     openai: () => [field('OpenAI API key', inp('openai.key', 'password', 'sk-…')),
       field('API base URL', inp('openai.base_url', 'url'), 'Leave as default unless you use Azure or a proxy.')],
     gemini: () => [field('Gemini API key', inp('gemini.key', 'password'), 'Create one at aistudio.google.com.')],

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1
+
+- Fixed: AI studies could get stuck repeating a phrase (common with smaller local models). Tolle now
+  sizes Ollama's context window to each request, asks Ollama to penalise repetition, stops a loop as
+  soon as it starts, retries once, and never saves the repeated text.
+- New: Settings → AI → Ollama context window and longest answer.
+- The In-depth level no longer pushes models to pad their answers to a word count.
+
 ## 0.1.0
 
 First release.

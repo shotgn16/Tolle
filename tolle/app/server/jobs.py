@@ -338,6 +338,11 @@ def complete_client(user_id: int, job_id: int, text: str, thinking: str = "") ->
         raise HTTPException(400, "Empty answer.")
     params = dec_json(r["params_enc"], {})
     meta = params.pop("_meta", {})
+    from .ai import repetition
+    text, changed = repetition.clean(text)
+    if changed:
+        text = text.rstrip() + ("\n\n*The model started repeating itself here, so Tolle cut the repeats. Try again or "
+                                "choose a lower depth for a complete answer.*")
     _, fin = KINDS[r["kind"]]
     result = fin(user_id, params, meta, text, thinking, params.get("_model", "on-device"))
     _set(job_id, status="done", progress="Done", result_enc=enc(result))

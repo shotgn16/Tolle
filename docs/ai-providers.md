@@ -29,6 +29,16 @@ Pull one vision model (e.g. `gemma3:4b`) if you upload photos of handwritten not
 
 Uses [WebLLM](https://webllm.mlc.ai) with WebGPU (Chrome/Edge 113+, Safari 18+, recent Android/iOS WebViews). The first run downloads the model (1–2.5 GB) and caches it. Research and source fetching still happen on the server; only the writing runs on your device, so your notes and prompts never go to a cloud AI.
 
+## If a study repeats itself
+
+Smaller local models sometimes get stuck repeating a phrase. Tolle watches for this while the answer is being written: it stops the loop, tries once more with a stronger repetition penalty, and removes any repeats before saving, adding a short note at that point.
+
+If it keeps happening:
+
+- make sure **Settings → AI → Context window** is at least 16384 (Ollama otherwise uses a short window and silently drops part of the request)
+- choose a lower depth, or lower the **Source text budget**
+- use a bigger model, e.g. `qwen3:14b` instead of `qwen3:4b`
+
 ## Source text budget
 
 Each study sends the Bible text and commentary excerpts to the model. **Settings → AI → Source text budget** limits how many characters. Small models (or small context windows) work better with 8,000–12,000; cloud models are fine with 24,000–60,000.

@@ -7,7 +7,7 @@ database and edited from the Settings screen.
 import os
 from pathlib import Path
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 APP_NAME = "Tolle"
 
 DATA_DIR = Path(os.environ.get("TOLLE_DATA_DIR", "/data"))

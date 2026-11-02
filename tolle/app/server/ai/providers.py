@@ -9,9 +9,12 @@ or mobile app, which runs the model locally (WebLLM / WebGPU) and posts the
 result back.
 """
 import base64
+import json
 import re
 
 import httpx
+
+from . import repetition
 
 TIMEOUT = httpx.Timeout(connect=15, read=900, write=60, pool=15)
 
@@ -97,22 +100,63 @@ def ollama_models(cfg):
         return out
 
 
-def ollama_chat(cfg, model, messages, images, thinking, temperature):
+def _ollama_options(cfg, messages, temperature, repeat_penalty):
+    """Size the context window to the request.
+
+    Ollama otherwise uses a short default context and silently drops anything longer, so the model
+    loses the sources – and its own earlier writing, which is a common cause of repetition loops.
+    """
+    prompt_chars = sum(len(m.get("content") or "") for m in messages)
+    out_tokens = int(cfg.get("ollama.max_output_tokens") or 6000)
+    needed = int(prompt_chars / 3.2) + out_tokens + 512
+    cap = int(cfg.get("ollama.num_ctx") or 16384)
+    num_ctx = max(4096, min(cap, 1 << (needed - 1).bit_length()))  # round up to a power of two
+    return {"temperature": temperature, "num_ctx": num_ctx, "num_predict": out_tokens,
+            "repeat_penalty": repeat_penalty, "repeat_last_n": 256, "top_p": 0.9}
+
+
+def ollama_chat(cfg, model, messages, images, thinking, temperature, repeat_penalty=1.12):
+    """Streams the answer so a repetition loop can be stopped the moment it starts."""
     msgs = [dict(m) for m in messages]
     if images:
         msgs[-1]["images"] = images
-    body = {"model": model, "messages": msgs, "stream": False, "think": bool(thinking),
-            "options": {"temperature": temperature}}
+    body = {"model": model, "messages": msgs, "stream": True, "think": bool(thinking),
+            "options": _ollama_options(cfg, msgs, temperature, repeat_penalty)}
+    url = f"{_ollama_url(cfg)}/api/chat"
     with httpx.Client(timeout=TIMEOUT) as c:
-        r = c.post(f"{_ollama_url(cfg)}/api/chat", json=body)
-        if r.status_code == 400 and "think" in r.text.lower():
-            body.pop("think")  # model doesn't support thinking
-            r = c.post(f"{_ollama_url(cfg)}/api/chat", json=body)
-        if r.status_code != 200:
-            raise _err(r, "Ollama")
-        msg = r.json().get("message", {})
-        text, tagged = _strip_think(msg.get("content", ""))
-        return {"text": text, "thinking": msg.get("thinking") or tagged}
+        for attempt in range(2):
+            text, thoughts, looped = [], [], False
+            with c.stream("POST", url, json=body) as r:
+                if r.status_code != 200:
+                    r.read()
+                    if attempt == 0 and r.status_code == 400 and "think" in r.text.lower():
+                        body.pop("think", None)  # model doesn't support thinking
+                        continue
+                    raise _err(r, "Ollama")
+                n = 0
+                for line in r.iter_lines():
+                    if not line:
+                        continue
+                    try:
+                        chunk = json.loads(line)
+                    except ValueError:
+                        continue
+                    if chunk.get("error"):
+                        raise AIError(f"Ollama: {chunk['error']}")
+                    msg = chunk.get("message") or {}
+                    if msg.get("thinking"):
+                        thoughts.append(msg["thinking"])
+                    if msg.get("content"):
+                        text.append(msg["content"])
+                        n += 1
+                        if n % 40 == 0 and repetition.is_looping("".join(text[-400:])):
+                            looped = True
+                            break  # closing the stream stops generation
+                    if chunk.get("done"):
+                        break
+            body_text, tagged = _strip_think("".join(text))
+            return {"text": body_text, "thinking": "".join(thoughts) or tagged, "looped": looped}
+    raise AIError("Ollama didn't return an answer.")
 
 
 # ---------------------------------------------------------------- OpenAI + compatible
@@ -297,11 +341,9 @@ def list_models(cfg, provider):
     raise AIError(f"Unknown provider {provider}")
 
 
-def chat(cfg, provider, model, messages, images=None, thinking=False, temperature=0.6):
-    if not model:
-        raise AIError("No model selected. Choose one in Settings → AI or in the model picker.")
+def _chat_once(cfg, provider, model, messages, images, thinking, temperature, penalty):
     if provider == "ollama":
-        return ollama_chat(cfg, model, messages, images, thinking, temperature)
+        return ollama_chat(cfg, model, messages, images, thinking, temperature, penalty)
     if provider == "openai":
         return openai_chat(cfg, model, messages, images, thinking, temperature)
     if provider == "openai_compat":
@@ -311,3 +353,24 @@ def chat(cfg, provider, model, messages, images=None, thinking=False, temperatur
     if provider == "anthropic":
         return anthropic_chat(cfg, model, messages, images, thinking, temperature)
     raise AIError(f"Provider {provider} can't run on the server.")
+
+
+def chat(cfg, provider, model, messages, images=None, thinking=False, temperature=0.6):
+    """Run a chat, and never save a repetition loop.
+
+    If the model starts repeating itself, the run is retried once with a stronger repetition
+    penalty. Whatever comes back is cleaned: repeated runs are collapsed and a note is added.
+    """
+    if not model:
+        raise AIError("No model selected. Choose one in Settings → AI or in the model picker.")
+    out = _chat_once(cfg, provider, model, messages, images, thinking, temperature, 1.12)
+    if out.get("looped") or repetition.has_loop(out["text"]):
+        retry = _chat_once(cfg, provider, model, messages, images, thinking, min(1.0, temperature + 0.15), 1.25)
+        if not (retry.get("looped") or repetition.has_loop(retry["text"])) or \
+                len(repetition.clean(retry["text"])[0]) > len(repetition.clean(out["text"])[0]):
+            out = retry
+    text, changed = repetition.clean(out["text"])
+    if changed or out.get("looped"):
+        text = text.rstrip() + ("\n\n*The model started repeating itself here, so Tolle stopped it. Try again, "
+                                "choose a lower depth, or use a larger model for a complete answer.*")
+    return {"text": text, "thinking": out.get("thinking", "")}

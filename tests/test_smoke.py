@@ -88,3 +88,15 @@ def test_bible_app_and_share():
         labels = [x["label"] for x in st["days"][st["today"]]["chapters"]]
         assert "Time in the Bible app" in labels and "John 15" in labels
         assert any(n["title"] == "What did you read?" for n in c.get("/api/notifications/pending", headers=H).json())
+
+
+def test_repetition_loop_is_removed():
+    from server.ai import repetition
+    good = "## Read and notice\nJohn opens with the Word. Grace and truth come through Jesus Christ (John 1:17)."
+    assert not repetition.has_loop(good) and repetition.clean(good) == (good, False)
+    looped = "This is the first verse of the Gospel of John" + " — the *first* verse of the *first* Gospel" * 200
+    assert repetition.has_loop(looped) and repetition.is_looping(looped[-400:])
+    cleaned, changed = repetition.clean(looped)
+    assert changed and cleaned.count("first* Gospel") == 1
+    table = "| a | b |\n|---|---|---|---|---|---|---|---|\n| x | y |"
+    assert not repetition.has_loop(table)

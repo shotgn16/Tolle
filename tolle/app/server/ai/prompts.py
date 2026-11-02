@@ -18,7 +18,8 @@ LEVEL_GUIDE = {
         "listeners, a suggested introduction and conclusion, and the key cross references."
     ),
     "deep": (
-        "LEVEL: In-depth. A thorough exegetical study, 2,500 words or more. Cover authorship/date/setting, genre and "
+        "LEVEL: In-depth. A thorough exegetical study (typically 1,800–3,000 words – depth matters more than "
+        "length; never pad). Cover authorship/date/setting, genre and "
         "literary structure, verse-by-verse or section-by-section exegesis, original-language word studies "
         "(transliterate and give the Strong's number when confident), textual or translation issues, how major "
         "interpretive traditions read it (presented fairly), biblical-theological connections across the canon, "
@@ -42,6 +43,8 @@ def system_base(perspective: str = "") -> str:
         "say so plainly. Do not quote long passages from the commentaries; summarise them in your own words.\n"
         "- Quote Scripture accurately from the provided Bible text when available and name the translation.\n"
         f"- {p}\n"
+        "- Never repeat yourself. Every sentence must add something new; do not restate a point in other words or "
+        "list near-synonyms. Length should come from substance – if you have nothing more to add, move on or stop.\n"
         "- Format with Markdown headings, short paragraphs and lists. Do not wrap the answer in a code block."
     )
 

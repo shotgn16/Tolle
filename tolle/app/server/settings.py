@@ -50,6 +50,8 @@ DEFAULTS: dict[str, Any] = {
     "ai.context_chars": 24000,        # budget of source text sent to the model
     "ai.vision_transcribe": True,     # use a vision model to read handwritten/image notes
     "ollama.url": "http://homeassistant.local:11434",
+    "ollama.num_ctx": 16384,           # largest context window Tolle will ask Ollama for
+    "ollama.max_output_tokens": 6000,  # longest answer
     "openai.key": "",
     "openai.base_url": "https://api.openai.com/v1",
     "gemini.key": "",
