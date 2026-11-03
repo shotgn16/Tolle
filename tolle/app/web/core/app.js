@@ -116,7 +116,7 @@ export function refreshChip() {
 // ---------------------------------------------------------------- auth screens
 function serverScreen() {
   showShell(false);
-  const input = h('input', { type: 'url', placeholder: 'https://homeassistant.local:8099', value: serverUrl() });
+  const input = h('input', { type: 'url', placeholder: 'http://192.168.1.20:8099', value: serverUrl(), autocapitalize: 'none' });
   view.replaceChildren(h('div', { class: 'auth-wrap' }, h('div', { class: 'card auth-card' },
     h('div', { class: 'brand' }, h('img', { src: 'icons/icon-192.png', width: 48, height: 48 }), h('div', {}, h('strong', {}, BRAND.name), h('small', {}, 'Connect to your server'))),
     h('p', {}, `Enter the address of your ${BRAND.name} server, or scan the code shown on your computer with your phone's camera.`),
@@ -124,7 +124,9 @@ function serverScreen() {
     h('button', {
       class: 'primary', style: { width: '100%' },
       onclick: async () => {
-        setServerUrl(input.value.trim());
+        let v = input.value.trim();
+        if (v && !/^https?:\/\//i.test(v)) v = `http://${v}`;
+        setServerUrl(v);
         try { await get('api/health'); start(); } catch (e) { errToast(e); }
       },
     }, 'Connect'))));
@@ -229,13 +231,17 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(
 buildNav();
 
 // Phone pairing: scanning the code on the computer opens tolle://connect?server=<address>
-window.Capacitor?.Plugins?.App?.addListener?.('appUrlOpen', (ev) => {
+function handlePairingLink(link) {
   try {
-    const u = new URL(ev.url);
+    const u = new URL(link);
     const server = u.searchParams.get('server');
-    if (server) { setServerUrl(server); token.set(null); start(); toast(`Connected to ${server}`); }
+    if (u.protocol !== 'tolle:' || !server || !/^https?:\/\//.test(server)) return;
+    if (server.replace(/\/+$/, '') === serverUrl()) return;
+    setServerUrl(server); token.set(null); start(); toast(`Connected to ${server}. Sign in to continue.`);
   } catch { /* not a pairing link */ }
-});
+}
+window.Capacitor?.Plugins?.App?.addListener?.('appUrlOpen', (ev) => handlePairingLink(ev.url));
+window.Capacitor?.Plugins?.App?.getLaunchUrl?.().then((r) => r?.url && handlePairingLink(r.url)).catch(() => {});
 
 // Capacitor: tapping a native notification opens its action
 window.Capacitor?.Plugins?.LocalNotifications?.addListener?.('localNotificationActionPerformed', (ev) => {

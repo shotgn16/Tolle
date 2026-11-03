@@ -1,5 +1,13 @@
 apply plugin: 'com.android.application'
 
+// Version comes from tolle/app/VERSION, e.g. 0.2.0 -> versionName "0.2.0", versionCode 2000.
+def appVersion = file('../../../tolle/app/VERSION').text.trim()
+def (vMajor, vMinor, vPatch) = (appVersion.tokenize('.') + ['0', '0', '0']).take(3).collect { it.replaceAll(/\D.*/, '') as int }
+
+// Release signing: set these environment variables (GitHub Actions gets them from repository secrets).
+// Without them the release APK is signed with the debug key, which still installs fine for testing.
+def ksPath = System.getenv('ANDROID_KEYSTORE_PATH')
+
 android {
     namespace = "io.github.shotgn16.tolle"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +15,8 @@ android {
         applicationId "io.github.shotgn16.tolle"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode vMajor * 1000000 + vMinor * 1000 + vPatch
+        versionName appVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +24,19 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (ksPath) {
+                storeFile file(ksPath)
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            signingConfig ksPath ? signingConfigs.release : signingConfigs.debug
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

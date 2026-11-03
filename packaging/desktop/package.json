@@ -1,0 +1,139 @@
+{
+  "name": "tolle-desktop",
+  "productName": "Tolle",
+  "version": "0.2.0",
+  "description": "Tolle \u2013 AI-assisted Bible study. Desktop app with built-in server and setup assistant.",
+  "author": "Shotgn16",
+  "license": "MIT",
+  "homepage": "https://github.com/shotgn16/Tolle",
+  "main": "src/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --publish never",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:linux": "electron-builder --linux --publish never"
+  },
+  "dependencies": {
+    "@vscode/sudo-prompt": "^9.3.2",
+    "electron-updater": "^6.8.11",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "electron": "45.2.1",
+    "electron-builder": "26.0.12"
+  },
+  "build": {
+    "appId": "io.github.shotgn16.tolle",
+    "productName": "Tolle",
+    "copyright": "Copyright \u00a9 2026 Shotgn16",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**",
+      "setup/**",
+      "build/icon.png",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../../build/server/tolle-server",
+        "to": "server",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../../docs/manual",
+        "to": "manual",
+        "filter": [
+          "**/*.md"
+        ]
+      }
+    ],
+    "artifactName": "Tolle-${version}-${os}-${arch}.${ext}",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "shortcutName": "Tolle",
+      "artifactName": "Tolle-Setup-${version}-windows-${arch}.${ext}",
+      "license": "build/license.txt",
+      "include": "build/installer.nsh"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg"
+        }
+      ],
+      "category": "public.app-category.education",
+      "icon": "build/icon.png",
+      "hardenedRuntime": false,
+      "artifactName": "Tolle-${version}-macos-${arch}.${ext}",
+      "minimumSystemVersion": "12.0"
+    },
+    "dmg": {
+      "title": "Tolle ${version}",
+      "contents": [
+        {
+          "x": 150,
+          "y": 190
+        },
+        {
+          "x": 390,
+          "y": 190,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Education",
+      "icon": "build/icon.png",
+      "synopsis": "AI-assisted Bible study",
+      "maintainer": "Shotgn16",
+      "artifactName": "Tolle-${version}-linux-${arch}.${ext}"
+    },
+    "deb": {
+      "depends": [
+        "libnotify4",
+        "libxss1",
+        "libnss3",
+        "libgtk-3-0",
+        "libasound2 | libasound2t64"
+      ]
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "shotgn16",
+        "repo": "Tolle",
+        "releaseType": "release"
+      }
+    ],
+    "afterPack": "scripts/after-pack.js"
+  }
+}

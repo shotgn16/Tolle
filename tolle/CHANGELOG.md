@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.2.0
+
+**Install Tolle anywhere**
+- Installers for Windows, macOS (Apple silicon and Intel) and Linux (AppImage and .deb, x64 and arm64).
+  Everything Tolle needs is included – no Python or other downloads.
+- A setup assistant asks how you want to use Tolle and does the rest: just this computer, this computer
+  plus your phone, a server for several people (runs as a background service from start-up), Docker
+  (here or on another machine), Home Assistant, or connecting to Tolle that's already running.
+- It can install Ollama and download an AI model sized to your computer, or set up ChatGPT, Gemini or
+  Claude, and it creates your account so Tolle opens ready to use.
+- Headless servers: `install.sh` (Linux/macOS) and `install.ps1` (Windows) with a setup assistant in the
+  terminal, and a `tolle-server` command for everything else.
+- Android app (APK) and iPhone/iPad app; scan a code on the computer to connect a phone.
+- The desktop app updates itself on Windows and Linux (AppImage).
+
+**Easier to customise**
+- Settings → Features: switch parts of Tolle on or off for everyone.
+- Settings → AI instructions: change the wording Tolle gives the AI (tone, tradition, what each depth
+  covers) without touching code.
+- The code is split into a core and self-contained features, with a template and a developer guide for
+  adding your own. Name, wording and colours live in two small files.
+
+**Fixes**
+- Docker installs now listen on the network, so they're reachable from outside the container.
+- PDF pages are rendered with a bundled library (no Poppler needed).
+
 ## 0.1.1
 
 - Fixed: AI studies could get stuck repeating a phrase (common with smaller local models). Tolle now

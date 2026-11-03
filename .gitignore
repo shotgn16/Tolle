@@ -27,3 +27,11 @@ mobile/ios/DerivedData/
 # misc
 .DS_Store
 ollama/
+
+# build output
+/build/
+packaging/desktop/node_modules/
+packaging/desktop/dist/
+packaging/desktop/resources/
+packaging/server/build/
+packaging/server/dist/

@@ -17,6 +17,8 @@ from .report import Reporter, StepError
 from .system import SYSTEM, user_data_dir
 
 IMAGE = "ghcr.io/shotgn16/tolle"
+SOURCE = "https://github.com/shotgn16/Tolle.git"   # used to build the image if it can't be downloaded
+LOCAL_IMAGE = "tolle-local"
 PROJECT = "tolle"
 
 
@@ -43,13 +45,13 @@ def check(docker_host: str | None = None) -> dict:
             "compose": compose.returncode == 0}
 
 
-def compose_file(port: int, tag: str, with_ollama: bool, timezone: str) -> str:
+def compose_file(port: int, tag: str, with_ollama: bool, timezone: str, image: str | None = None) -> str:
     defaults = {"ai.provider": "ollama", "ollama.url": "http://ollama:11434"} if with_ollama else {}
     lines = [
         "# Created by the Tolle installer. Manage with:  docker compose -p tolle -f <this file> up -d / down",
         "services:",
         "  tolle:",
-        f"    image: {IMAGE}:{tag}",
+        f"    image: {image or f'{IMAGE}:{tag}'}",
         "    container_name: tolle",
         "    restart: unless-stopped",
         "    ports:",
@@ -104,19 +106,35 @@ def install(port: int, rep: Reporter, docker_host: str | None = None, with_ollam
     env = _env(docker_host)
     base = ["docker", "compose", "-p", PROJECT, "-f", str(path)]
 
+    def pull() -> bool:
+        proc = subprocess.Popen(base + ["pull", "tolle"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                text=True, env=env)
+        for line in proc.stdout:
+            if line.strip():
+                rep.progress(line.strip()[:120])
+        return proc.wait() == 0
+
     rep.progress("Downloading the Tolle image (first time only)…")
-    proc = subprocess.Popen(base + ["pull"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
-    for line in proc.stdout:
-        if line.strip():
-            rep.progress(line.strip()[:120])
-    if proc.wait() != 0:
-        # A version tag may not exist yet (e.g. development builds) – fall back to :latest.
-        if tag is None:
-            path.write_text(compose_file(port, "latest", with_ollama, timezone))
-            if subprocess.run(base + ["pull"], capture_output=True, env=env).returncode != 0:
-                raise StepError("Couldn't download the Tolle image.", "Check the internet connection of the Docker host.")
-        else:
-            raise StepError(f"Couldn't download {IMAGE}:{tag}.", "Check the internet connection of the Docker host.")
+    ok = pull()
+    if not ok and tag is None:   # this exact version may not be published (e.g. a development build)
+        path.write_text(compose_file(port, "latest", with_ollama, timezone))
+        ok = pull()
+    if not ok:
+        # The image may be private or the registry unreachable – build it from the source on GitHub instead.
+        rep.progress("Couldn't download the image, so building it from the source code (takes a few minutes)…")
+        build = subprocess.Popen(["docker", "build", "-t", LOCAL_IMAGE, "-f", "Dockerfile.standalone",
+                                  f"{SOURCE}#main:tolle"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                 text=True, env=env)
+        for line in build.stdout:
+            if line.strip():
+                rep.progress(line.strip()[-120:])
+        if build.wait() != 0:
+            raise StepError("Couldn't download or build the Tolle image.",
+                            "Check the internet connection of the Docker host, then try again.")
+        path.write_text(compose_file(port, "", with_ollama, timezone, image=LOCAL_IMAGE))
+    if with_ollama:
+        rep.progress("Downloading the Ollama image…")
+        subprocess.run(base + ["pull", "ollama"], capture_output=True, env=env)
 
     rep.progress("Starting the container…")
     res = subprocess.run(base + ["up", "-d"], capture_output=True, text=True, env=env)
