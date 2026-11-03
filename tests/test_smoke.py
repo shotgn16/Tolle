@@ -10,8 +10,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tolle" / "app"))
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from server import db  # noqa: E402
-from server.bible import parse_refs  # noqa: E402
+from server.core import db  # noqa: E402
+from server.core.bible import parse_refs  # noqa: E402
 from server.main import app  # noqa: E402
 
 H = {"X-Device-Id": "test-device"}
@@ -91,7 +91,7 @@ def test_bible_app_and_share():
 
 
 def test_repetition_loop_is_removed():
-    from server.ai import repetition
+    from server.core.ai import repetition
     good = "## Read and notice\nJohn opens with the Word. Grace and truth come through Jesus Christ (John 1:17)."
     assert not repetition.has_loop(good) and repetition.clean(good) == (good, False)
     looped = "This is the first verse of the Gospel of John" + " — the *first* verse of the *first* Gospel" * 200
@@ -100,3 +100,33 @@ def test_repetition_loop_is_removed():
     assert changed and cleaned.count("first* Gospel") == 1
     table = "| a | b |\n|---|---|---|---|---|---|---|---|\n| x | y |"
     assert not repetition.has_loop(table)
+
+
+def test_features_can_be_switched_off():
+    with TestClient(app) as c:
+        feats = {f["id"]: f for f in c.get("/api/features").json()}
+        assert feats["calling"]["enabled"] and feats["library"]["essential"]
+        r = c.put("/api/admin/features", json={"disabled": ["calling", "library"]}, headers=H).json()
+        state = {f["id"]: f["enabled"] for f in r}
+        assert state["calling"] is False and state["library"] is True   # essential features stay on
+        assert c.get("/api/calling", headers=H).status_code == 404
+        assert c.post("/api/ai/jobs", json={"kind": "calling_turn", "session_id": 1}, headers=H).status_code == 404
+        c.put("/api/admin/features", json={"disabled": []}, headers=H)
+        assert c.get("/api/calling", headers=H).status_code == 200
+
+
+def test_ai_instructions_can_be_customised():
+    from server.core.ai import prompts
+    with TestClient(app) as c:
+        items = {i["key"]: i for i in c.get("/api/admin/instructions", headers=H).json()}
+        assert {"assistant", "level.study", "calling.guide"} <= set(items)
+        c.put("/api/admin/instructions", json={"level.study": "Write for a church home group."}, headers=H)
+        assert prompts.LEVEL_GUIDE["study"] == "Write for a church home group."
+        c.put("/api/admin/instructions", json={"level.study": ""}, headers=H)   # reset
+        assert prompts.LEVEL_GUIDE["study"].startswith("LEVEL: Study")
+
+
+def test_pairing_codes():
+    with TestClient(app) as c:
+        r = c.get("/api/server/pairing", headers=H).json()
+        assert "addresses" in r

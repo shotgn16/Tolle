@@ -1,10 +1,13 @@
 fastapi>=0.115,<1.0
 uvicorn>=0.34,<1.0
 httpx>=0.28,<1.0
+websockets>=13,<18
 cryptography>=44,<50
 beautifulsoup4>=4.12,<5
 pypdf>=5.1,<7
+pypdfium2>=4.30,<6
 python-docx>=1.1,<2
 python-multipart>=0.0.20
 pillow>=11,<13
 tzdata>=2024.2
+qrcode>=7.4,<9

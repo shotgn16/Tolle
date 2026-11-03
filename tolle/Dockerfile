@@ -3,7 +3,8 @@ ARG BUILD_FROM=ghcr.io/home-assistant/base-python:3.13-alpine3.23
 FROM ${BUILD_FROM}
 
 # OCR for scanned notes / images, PDF page rendering
-RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-eng poppler-utils
+# OCR for scanned notes and photos (PDF pages are rendered by the bundled pypdfium2)
+RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-eng
 
 WORKDIR /app
 COPY app/requirements.txt /app/requirements.txt

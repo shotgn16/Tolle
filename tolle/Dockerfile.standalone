@@ -2,7 +2,7 @@
 FROM python:3.13-slim
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng poppler-utils \
+ && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -16,6 +16,7 @@ RUN mkdir -p /data
 # To run as an unprivileged user, set `user: "1000:1000"` in docker-compose.yml and `chown 1000:1000 ./data`.
 
 ENV TOLLE_DATA_DIR=/data \
+    TOLLE_MODE=docker \
     TOLLE_PORT=8099 \
     PYTHONUNBUFFERED=1
 

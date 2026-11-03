@@ -1,56 +1,4 @@
-/* Tolle – clean, modern UI.
-   Teal = you and your actions (shared with LifeHub). Purple = anything written by AI, always. */
-@font-face {
-  font-family: "Figtree";
-  src: url("../fonts/figtree-latin-wght-normal.woff2") format("woff2-variations");
-  font-weight: 300 900; font-display: swap;
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: "Figtree";
-  src: url("../fonts/figtree-latin-ext-wght-normal.woff2") format("woff2-variations");
-  font-weight: 300 900; font-display: swap;
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
-:root {
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --surface-2: #f0f2f5;
-  --ink: #151821;
-  --ink-2: #4a5263;
-  --muted: #858d9d;
-  --line: #e3e6eb;
-  --line-strong: #cfd4dc;
-  --brand: #0f766e;
-  --brand-ink: #ffffff;
-  --brand-soft: #e5f3f1;
-  --brand-text: #0b5f58;
-  --ai: #7c3aed;
-  --ai-bg: #f6f2ff;
-  --ai-line: #e2d6fc;
-  --ai-ink: #3f1f86;
-  --ai-soft: #ece4ff;
-  --danger: #c0262d;
-  --r-sm: 8px; --r: 10px; --r-lg: 16px;
-  --pop: 0 12px 32px rgba(21, 24, 33, .14), 0 2px 6px rgba(21, 24, 33, .06);
-  --font: "Figtree", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --side: 248px;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0e1116; --surface: #151920; --surface-2: #1c212a; --ink: #e9ecf1; --ink-2: #b0b7c4; --muted: #7c8494;
-    --line: #252b35; --line-strong: #343b47; --brand: #2bb5a8; --brand-ink: #04211e; --brand-soft: #102e2b; --brand-text: #5fd3c7;
-    --ai: #a78bfa; --ai-bg: #1b1530; --ai-line: #36295e; --ai-ink: #ddd3ff; --ai-soft: #2a2047; color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #0e1116; --surface: #151920; --surface-2: #1c212a; --ink: #e9ecf1; --ink-2: #b0b7c4; --muted: #7c8494;
-  --line: #252b35; --line-strong: #343b47; --brand: #2bb5a8; --brand-ink: #04211e; --brand-soft: #102e2b; --brand-text: #5fd3c7;
-  --ai: #a78bfa; --ai-bg: #1b1530; --ai-line: #36295e; --ai-ink: #ddd3ff; --ai-soft: #2a2047; color-scheme: dark;
-}
-
+/* Layout and components. Colours and fonts come from theme.css. */
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); }
 body { font: 400 15.5px/1.6 var(--font); -webkit-font-smoothing: antialiased; min-height: 100vh; font-feature-settings: "ss01"; }
@@ -306,3 +254,7 @@ table.simple tr:last-child td { border-bottom: 0; }
 #app.no-shell .view { max-width: none; padding: 0; }
 .motto { display: block; font-size: .78rem; color: var(--muted); line-height: 1.35; }
 .motto em { font-style: italic; color: var(--brand-text); font-weight: 600; }
+.setup-nudge { display: flex; gap: 14px; align-items: center; text-decoration: none; color: inherit; margin-bottom: 14px; border-color: var(--ai-line); }
+.setup-nudge strong { display: block; }
+.qr { width: 132px; height: 132px; flex: none; background: #fff; padding: 6px; border-radius: 10px; border: 1px solid var(--line); }
+.qr svg { width: 100%; height: 100%; display: block; }
