@@ -23,6 +23,10 @@ const IS_MAC = process.platform === 'darwin';
 const RELEASES = 'https://github.com/shotgn16/Tolle/releases';
 const MANUALS = 'https://github.com/shotgn16/Tolle/tree/main/docs/manual';
 
+// On macOS the server's data folder is ~/Library/Application Support/Tolle; keep this app's own files
+// (window state, cache, logs) next to it rather than mixed in.
+if (IS_MAC) app.setPath('userData', path.join(app.getPath('appData'), 'Tolle Desktop'));
+
 let mainWin = null;
 let setupWin = null;
 let pairWin = null;
