@@ -1,69 +1,119 @@
-# Development
+# Developer guide
 
-## Run locally
+Tolle is built to be changed. Most customisations need no programming knowledge beyond editing a text file, and adding a whole new screen means copying one folder.
+
+- **[Customising Tolle](customising.md)**: rename and rebrand it, change colours, switch features on and off, rewrite the AI's instructions, add study sites, add your own feature or AI provider.
+- **[Building and releasing](building.md)**: build the installers and phone apps yourself, sign them, and publish a release.
+
+## How Tolle fits together
+
+Tolle is one program, the **Tolle server**, plus several ways to reach it:
+
+```
+ Desktop app (Electron)      Phone & tablet apps (Capacitor)      Any web browser
+ ├─ setup assistant          └─ the same web app, packaged        └─ the same web app
+ └─ shows the web app
+              │                          │                               │
+              └──────────────── HTTP (REST + sign-in token) ─────────────┘
+                                         │
+                              Tolle server (Python, FastAPI)
+                              ├─ core/       accounts, encryption, database, AI, jobs, settings
+                              ├─ features/   one folder per part of the app (notes, studies, …)
+                              ├─ installer/  service, Ollama, Docker and Home Assistant set-up
+                              └─ web/        the web app it serves (no build step)
+```
+
+The **same server program** runs everywhere: inside the desktop app, as a background service, in Docker and in Home Assistant. Only how it starts differs.
+
+## The project
+
+```
+tolle/                      the Tolle server (also the Home Assistant app and Docker build folder)
+  app/server/
+    core/                   shared building blocks – you rarely need to change these
+    features/               one folder per feature; _template/ is a working example to copy
+    installer/              set-up steps used by the desktop assistant and `tolle-server setup`
+    cli.py                  the tolle-server command (serve, setup, service, ollama, docker, …)
+  app/web/
+    core/                   app shell: menu, sign-in, settings, shared UI pieces
+    features/               the screens for each feature (same ids as the server side)
+    css/theme.css           colours and fonts
+  config.yaml, Dockerfile   Home Assistant app
+  Dockerfile.standalone     Docker image
+packaging/
+  server/                   recipe that turns the server into a stand-alone program (PyInstaller)
+  desktop/                  desktop app and its setup assistant (Electron, electron-builder)
+  install/                  one-line installers for servers with no screen (install.sh, install.ps1)
+mobile/                     Android and iOS/iPadOS apps (Capacitor)
+docs/manual/                the user manual
+docs/developer/             this guide
+scripts/set-version.py      sets the version number everywhere
+tests/                      automated tests
+.github/workflows/          builds: container images on every push, installers on every release
+```
+
+## Run it from the source code
+
+You need Python 3.12 or newer.
 
 ```bash
 cd tolle/app
-python3 -m venv .venv && . .venv/bin/activate
+python3 -m venv .venv
+. .venv/bin/activate              # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-TOLLE_DATA_DIR=./data python -m server        # http://localhost:8099
+python -m server serve --data-dir ./data
 ```
 
-The web app (`tolle/app/web`) is plain ES modules with no build step – edit and reload. Vendored libraries: `marked` (Markdown) and `DOMPurify` (sanitising).
+Open http://127.0.0.1:8099 and create an account. The web app has no build step: edit a file in `tolle/app/web` and reload the page. Restart the server after changing Python files.
 
-Tests: `pip install pytest && pytest -q tests` (from the repo root).
+Run the tests from the repository root:
 
-## Architecture
-
-```
-web app (browser / HA Ingress / Capacitor)
-   │  REST + Bearer token, X-Device-Id
-   ▼
-FastAPI (server/main.py)
-   ├─ auth.py        accounts, sessions, device detection
-   ├─ crypto.py      Fernet encryption, scrypt, tokens
-   ├─ db.py          SQLite (columns ending _enc are ciphertext)
-   ├─ jobs.py        background AI jobs (prepare → AI → finish)
-   ├─ ai/providers   Ollama, OpenAI, Gemini, Anthropic, OpenAI-compatible
-   ├─ ai/prompts     prompts for every feature and depth level
-   ├─ sources.py     fetch + cache + extract study-site pages
-   ├─ bible.py       books, reference parser
-   ├─ extract.py     PDF/DOCX/image text extraction, OCR
-   ├─ tracker.py     reading & app time, streaks, reminder scheduler
-   └─ notify.py      device notifications, Home Assistant notify
+```bash
+pip install pytest
+pytest -q tests
 ```
 
-### AI jobs
+Run the desktop app against your source code:
 
-AI calls can take minutes, so every AI feature is a job: `POST /api/ai/jobs {kind, …params, provider?, model?, thinking?}` returns an id; the client polls `GET /api/ai/jobs/{id}`. Each kind has a `prepare` step (load notes, parse references, fetch sources, build messages) and a `finish` step (save the purple AI note). For the **on-device** provider the job stops at status `client` with the prepared messages; the client runs the model with WebLLM and posts the answer to `/api/ai/jobs/{id}/complete`.
+```bash
+cd packaging/desktop
+npm install
+npx electron .        # uses Python from tolle/app, or build/server if you've built the server
+```
 
-Kinds: `notes_analyze`, `passage_study`, `insight`, `builder`, `calling_turn`, `calling_summary`, `transcribe`.
+## The tolle-server command
 
-### Main endpoints
+Everything the installers do is available on the command line, so it can be scripted:
 
-| Method & path | Purpose |
+| Command | What it does |
 |---|---|
-| `GET /api/auth/status`, `POST /api/auth/setup`, `POST /api/auth/login`, `POST /api/auth/logout` | accounts |
-| `GET/PUT /api/settings` | per-user encrypted settings |
-| `GET /api/ai/models?provider=` | list models with thinking/vision flags |
-| `GET/POST /api/studies`, `GET/PATCH/DELETE /api/studies/{id}` | studies (kinds: notes, passage, insight, plan) |
-| `POST /api/studies/{id}/entries`, `PATCH/DELETE /api/entries/{id}` | notes |
-| `POST /api/notes/upload` | multipart `files[]`, `groups[]`, optional `study_id` |
-| `GET /api/bible/chapter`, `GET /api/bible/parse` | Bible text, reference parsing |
-| `GET/POST /api/calling`, `POST /api/calling/{id}/message`, `/summary` | calling discernment |
-| `POST /api/tracker/app`, `/reading/start`, `/reading/beat`, `/reading/manual`, `/external`; `GET /api/tracker/stats` | tracking |
-| `GET /api/devices`, `PATCH/DELETE /api/devices/{id}`, `POST /api/devices/{id}/test` | devices |
-| `GET /api/notifications/pending`, `GET /api/notifications/ha-services`, `GET /api/notifications/ha-app-sensors` | notifications, Home Assistant |
-| `POST /api/v1/bible/app` `{event: opened\|closed}` | iPhone Shortcuts: time in the Bible app (header `X-Api-Key`) |
-| `POST /api/v1/bible/read` `{reference}` | share a reference or bible.com link to log it (header `X-Api-Key`) |
-| `GET/POST /api/me/api-key` | show / regenerate your personal API key |
+| `tolle-server serve [--port N] [--host ADDR] [--data-dir DIR]` | start Tolle |
+| `tolle-server setup` | the setup assistant in a terminal |
+| `tolle-server info` | this computer: suggested AI model, what's installed, network addresses |
+| `tolle-server configure --mode personal\|shared\|server …` | save how Tolle runs and its starting AI settings |
+| `tolle-server service install\|uninstall\|status [--scope system\|user]` | run in the background from start-up or log-in |
+| `tolle-server ollama install\|pull MODEL\|status` | install Ollama and download models |
+| `tolle-server docker check\|install\|uninstall [--docker-host ssh://…] [--with-ollama]` | install into Docker, here or on another machine |
+| `tolle-server homeassistant install --url URL --token TOKEN` | install the Home Assistant app |
+| `tolle-server reset-password USERNAME` | set a new password |
+| `tolle-server selftest` | check every bundled library works |
 
-### Adding an AI provider
+Add `--json` to any command for one JSON object per line. The desktop app uses this.
 
-Add `x_models(cfg)` and `x_chat(cfg, model, messages, images, thinking, temperature)` to `server/ai/providers.py`, register them in `PROVIDERS`, `list_models` and `chat`, add settings keys to `server/settings.py` and fields to `PFIELDS` in `web/js/views/settings.js`.
+## Where data lives
 
-## Releasing
+| How Tolle runs | Data folder |
+|---|---|
+| Desktop app, just you | Windows `%LOCALAPPDATA%\Tolle` · macOS `~/Library/Application Support/Tolle` · Linux `~/.local/share/tolle` |
+| Server for several people | Windows `C:\ProgramData\Tolle` · macOS `/Library/Application Support/Tolle` · Linux `/var/lib/tolle` |
+| Docker / Home Assistant | `/data` inside the container |
 
-1. Bump `version` in `tolle/config.yaml` (and `VERSION` in `server/config.py`, `mobile/package.json`).
-2. Add a `tolle/CHANGELOG.md` entry.
-3. Push to `main` – GitHub Actions tests and publishes the images. Home Assistant shows the update.
+The data folder holds `tolle.db` (the encrypted database), `files/` (encrypted uploads), `secret.key` (the encryption key), `server.json` (how this server runs) and `instructions.json` (any AI instructions you changed).
+
+## The API
+
+Every screen talks to the server over a small JSON API. Requests carry `Authorization: Bearer <token>` and an `X-Device-Id`. Each feature's routes are in `server/features/<id>/__init__.py`. Shared routes are in `server/core/routes.py`.
+
+AI work runs as **jobs**, because it can take minutes: `POST /api/ai/jobs {kind, …}` returns an id, and the app polls `GET /api/ai/jobs/{id}`. With the on-device AI, the job pauses with status `client`; the browser or phone runs the model and posts the answer back.
+
+Endpoints for automations use a personal API key in an `X-Api-Key` header: `POST /api/v1/bible/app` (time in the Bible app) and `POST /api/v1/bible/read` (log a passage).

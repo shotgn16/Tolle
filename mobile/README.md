@@ -8,4 +8,4 @@ npm run add:android   # and/or npm run add:ios
 npm run android       # or npm run ios
 ```
 
-Full instructions, notifications, the optional Android "other Bible apps" tracker and the store publishing checklist: [../docs/mobile.md](../docs/mobile.md).
+Full instructions, notifications, the optional Android "other Bible apps" tracker and the store publishing checklist: [../docs/manual/phones-and-tablets.md](../docs/manual/phones-and-tablets.md) and [../docs/developer/building.md](../docs/developer/building.md).

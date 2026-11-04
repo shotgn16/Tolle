@@ -1,4 +1,4 @@
-# User guide
+# Using Tolle
 
 ## Purple means AI
 
@@ -23,7 +23,7 @@ Most AI features let you choose how deep to go:
   - *Each file → its own study*: e.g. a folder of separate studies.
   - *Custom groups*: give files the same study name to group them – e.g. two documents per study.
   - *Add to an existing study* from the “Where should they go?” list, or **Add files** inside a study.
-- Images and scanned PDFs are read with OCR, and – if a vision model is configured – transcribed by AI (appears as a purple transcription note). You can also press **Transcribe with AI** on any image or PDF.
+- Photos and scanned PDFs are transcribed by an AI model that can read images, such as `gemma3:4b` in Ollama or any cloud AI. This handles handwriting well. The transcription appears as a purple note, and you can press **Transcribe with AI** on any image or PDF at any time. In Docker and Home Assistant, Tolle also reads printed text from images by itself (OCR), even without such a model.
 - **Analyse & compare with sources** – the AI reads all your notes and files in the study, detects the passages, researches them, and writes: a summary of your notes, passages and themes, where the sources agree, what they add, points to examine further, and questions.
 - **Research more into this study** – adds a passage study to the same study.
 
@@ -68,8 +68,8 @@ Come back to a reflection any time from the list. Please share what you sense wi
 - **Bible** – choose book, chapter and translation. While a chapter is open (and the screen is visible) Tolle logs the time and the chapter. **Insight on this chapter** and **Passage study** jump straight into those features.
 - **Reading tracker** – today's minutes against your goal, your streak, a 14-day chart (reading vs other time in the app) and every chapter with the time you read it.
 - **Log reading** – for reading elsewhere (paper Bible, church, another app).
-- **Time in the YouVersion app** – logged automatically through the Home Assistant Companion app (Android) or Shortcuts (iPhone); see [mobile.md](mobile.md#time-in-the-youversion-app). Sessions appear as “Time in the Bible app”, count towards your streak, and Tolle can ask which passage you read.
-- **Reminder** – **Settings → Devices & notifications → Reading reminder**. If you haven't logged any reading by the chosen time, Tolle notifies your selected devices with a link to log it.
+- **Time in the YouVersion app** – logged automatically through the Home Assistant Companion app (Android) or Shortcuts (iPhone); see [Phones & tablets](phones-and-tablets.md#time-in-the-youversion-app). Sessions appear as “Time in the Bible app”, count towards your streak, and Tolle can ask which passage you read.
+- **Reminder** – **Settings → Reading → Reading reminder**. If you haven't logged any reading by the chosen time, Tolle notifies your selected devices with a link to log it.
 
 ## Devices & notifications
 
@@ -78,3 +78,8 @@ Every browser or app that signs in appears under **Settings → Devices & notifi
 ## Users
 
 Each user has a private, encrypted space. The administrator adds users under **Settings → Account**.
+
+## For administrators: shaping Tolle for your group
+
+- **Settings → Features** switches whole parts of Tolle on or off for everyone, for example hiding *Calling* on a church server. Nothing is deleted; switching a feature back on brings everything back.
+- **Settings → AI instructions** changes the wording Tolle gives the AI: its ground rules, what each study depth covers, and how the calling guide behaves. Use it to suit your tradition or group (for example "Write for a church home group of mixed ages" or "Use British spelling"). **Reset** brings back the original, and updates never overwrite your changes.

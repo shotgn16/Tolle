@@ -1,4 +1,4 @@
-# Security & encryption
+# Security, backups and updates
 
 ## Accounts
 
@@ -35,6 +35,41 @@ Tolle sends a strict Content-Security-Policy (scripts only from itself plus the 
 ## AI providers
 
 Cloud AI providers receive the content of the request. Use Ollama or On-device AI for complete privacy.
+
+## Where your data is
+
+| How Tolle runs | Data folder |
+|---|---|
+| Desktop app on Windows | `%LOCALAPPDATA%\Tolle` |
+| Desktop app on macOS | `~/Library/Application Support/Tolle` |
+| Desktop app on Linux | `~/.local/share/tolle` |
+| Server mode on Windows / macOS / Linux | `C:\ProgramData\Tolle` / `/Library/Application Support/Tolle` / `/var/lib/tolle` |
+| Docker | the `/data` volume |
+| Home Assistant | inside the app; included in Home Assistant backups |
+
+## Backups
+
+Back up the whole data folder **including `secret.key`**. Without that key nobody, including you, can read the data. With it, anyone with the backup can, so keep backups somewhere safe. To restore, put the folder back before starting Tolle.
+
+## Forgotten password
+
+An administrator can set a new password from the server's command line:
+
+```sh
+tolle-server reset-password USERNAME
+```
+
+Run it as the user Tolle runs as. For a server install add `--data-dir` with the folder above; on Windows use `tolle-server.exe` in `C:\Program Files\Tolle Server`.
+
+## Updates
+
+- **Windows and Linux AppImage**: Tolle updates itself and asks you to restart.
+- **Mac and Linux .deb**: Tolle tells you when there's a new version; install it over the old one.
+- **Docker**: `docker compose pull && docker compose up -d`.
+- **Home Assistant**: click **Update** on the app page.
+- **Headless servers**: run the install command again.
+
+Your data and settings are kept across updates.
 
 ## Reporting a vulnerability
 

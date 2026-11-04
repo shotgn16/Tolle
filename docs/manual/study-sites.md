@@ -1,4 +1,4 @@
-# Research sources
+# Study sites
 
 For every passage it studies, Tolle fetches pages from the sources enabled in **Settings → Sources**, extracts the main text, and passes trimmed excerpts to the AI with the URL. The AI is instructed to cite sources as links, summarise rather than quote, and keep “what the text says”, “what the sources say” and “its own synthesis” separate. Each AI note lists every source it checked and whether it was available.
 

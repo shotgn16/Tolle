@@ -1,6 +1,6 @@
-# AI providers, models and thinking mode
+# Choosing an AI
 
-Choose a default in **Settings → AI**. Every AI button also has a model picker so you can switch provider, model or thinking for a single request.
+Tolle needs an AI model to write studies, insights and plans. The desktop setup assistant can set one up for you; you can change it any time in **Settings → AI**. Every AI button also has a model picker so you can switch provider, model or thinking for a single request.
 
 | Provider | Runs where | Setup | Thinking | Reads images |
 |---|---|---|---|---|
