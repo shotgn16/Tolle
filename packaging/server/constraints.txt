@@ -1,0 +1,7 @@
+# Versions pinned for the stand-alone server program (installers and server packages).
+# Each line is here because a newer version broke the bundled program somewhere. The release build
+# runs `tolle-server selftest` on every platform, so a problem shows up there rather than for users.
+#
+# cryptography 49.0.0 ships a separate Intel-Mac wheel that fails to load once bundled
+# ("Symbol not found: _SSL_get0_group_name"). 48.x uses the universal2 wheel, which works.
+cryptography==48.0.1

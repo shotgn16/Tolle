@@ -276,7 +276,21 @@ def cmd_selftest(args, rep) -> dict:
     return {"ok": True, "checks": checks}
 
 
+def _utf8_output() -> None:
+    """Always write UTF-8. On Windows, output going to a pipe or file (the desktop app, a log, a build
+    server) otherwise uses the old ANSI code page, which can't print characters such as ✓ or “…”."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            if stream.isatty():
+                stream.reconfigure(errors="replace")
+            else:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError, OSError):
+            pass
+
+
 def main(argv=None) -> None:
+    _utf8_output()
     argv = list(sys.argv[1:] if argv is None else argv)
     as_json = "--json" in argv          # accept --json anywhere on the line
     argv = [a for a in argv if a != "--json"]

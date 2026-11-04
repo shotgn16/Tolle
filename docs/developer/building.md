@@ -78,7 +78,7 @@ Without signing, Windows SmartScreen shows "Windows protected your PC" until eno
 ### The server program
 
 ```bash
-pip install -r tolle/app/requirements.txt pyinstaller
+pip install -r tolle/app/requirements.txt -c packaging/server/constraints.txt pyinstaller
 cd packaging/server
 pyinstaller --noconfirm --distpath ../../build/server --workpath ../../build/work tolle-server.spec
 ../../build/server/tolle-server/tolle-server selftest

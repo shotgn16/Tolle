@@ -65,8 +65,10 @@ function runCli(args, onEvent = () => {}, extraEnv = {}) {
     let buf = '';
     let result = null;
     let error = null;
+    child.stdout.setEncoding('utf8'); // keeps characters split across chunks intact
+    child.stderr.setEncoding('utf8');
     child.stdout.on('data', (d) => {
-      buf += d.toString();
+      buf += d;
       let i;
       while ((i = buf.indexOf('\n')) >= 0) {
         const line = buf.slice(0, i).trim();
@@ -81,7 +83,7 @@ function runCli(args, onEvent = () => {}, extraEnv = {}) {
       }
     });
     let stderr = '';
-    child.stderr.on('data', (d) => { stderr += d.toString(); });
+    child.stderr.on('data', (d) => { stderr += d; });
     child.on('error', (e) => reject({ message: `Couldn't start the Tolle server program: ${e.message}` }));
     child.on('close', (code) => {
       if (result) resolve(result);

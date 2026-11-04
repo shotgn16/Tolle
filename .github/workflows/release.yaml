@@ -61,7 +61,8 @@ jobs:
       - name: Build tolle-server
         shell: bash
         run: |
-          pip install -r tolle/app/requirements.txt pyinstaller
+          # constraints.txt pins versions known to work in the stand-alone program on every platform
+          pip install -r tolle/app/requirements.txt -c packaging/server/constraints.txt pyinstaller
           cd packaging/server
           pyinstaller --noconfirm --distpath ../../build/server --workpath ../../build/work tolle-server.spec
       - name: Check it runs
@@ -198,12 +199,18 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk ../../out/Tolle-$V-android.apk
       - name: Check the APK
         run: |
-          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          # Use the newest stable build-tools (skip previews / release candidates).
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | grep -viE 'rc|preview' | sort -V | tail -1)"
           APK=$(ls out/*.apk)
-          "$BT/aapt2" dump badging "$APK" | grep -E "^package:|sdkVersion|application-label:"
-          "$BT/apksigner" verify --print-certs "$APK" | grep -E "Signer #1 certificate (DN|SHA-256)"
+          "$BT/aapt2" dump badging "$APK" | grep -E "^package:|minSdkVersion|application-label:" || true
+          if ! "$BT/apksigner" verify --verbose --print-certs "$APK" > apk-signature.txt 2>&1; then
+            cat apk-signature.txt
+            echo "::error::The APK's signature is not valid."
+            exit 1
+          fi
+          grep -E "Verified using|Signer #1 certificate (DN|SHA-256)" apk-signature.txt || cat apk-signature.txt
           if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
-            echo "::warning::This APK uses a temporary key. Add the Android signing secrets so updates install over earlier versions (docs/developer/README.md)."
+            echo "::warning::This APK uses a temporary key. Add the Android signing secrets so updates install over earlier versions (docs/developer/building.md#android-recommended)."
           fi
       - uses: actions/upload-artifact@v7
         with:
