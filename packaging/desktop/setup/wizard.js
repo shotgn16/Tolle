@@ -313,8 +313,9 @@ async function doWork(step) {
     ]));
     await step('Waiting for the service to start…', async () => {
       for (let i = 0; i < 40; i += 1) {
-        const r = await fetch(`http://127.0.0.1:${state.port}/api/health`).catch(() => null);
-        if (r && r.ok) return;
+        // Through the main process: this page can't call the server directly (cross-origin rules).
+        const r = await t.api({ url: `http://127.0.0.1:${state.port}/api/health`, timeout: 1500 });
+        if (r.ok) return;
         await new Promise((res) => setTimeout(res, 1000));
       }
       throw new Error('The service was installed but isn\'t answering yet. Restart the computer, then open Tolle again.');

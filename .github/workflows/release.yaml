@@ -66,7 +66,9 @@ jobs:
           pyinstaller --noconfirm --distpath ../../build/server --workpath ../../build/work tolle-server.spec
       - name: Check it runs
         shell: bash
-        run: build/server/tolle-server/tolle-server* info --json
+        run: |
+          build/server/tolle-server/tolle-server* info --json
+          build/server/tolle-server/tolle-server* selftest
       - name: Package
         shell: bash
         run: |
@@ -194,6 +196,15 @@ jobs:
           V=$(cat ../../tolle/app/VERSION)
           mkdir -p ../../out
           cp app/build/outputs/apk/release/app-release.apk ../../out/Tolle-$V-android.apk
+      - name: Check the APK
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          APK=$(ls out/*.apk)
+          "$BT/aapt2" dump badging "$APK" | grep -E "^package:|sdkVersion|application-label:"
+          "$BT/apksigner" verify --print-certs "$APK" | grep -E "Signer #1 certificate (DN|SHA-256)"
+          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "::warning::This APK uses a temporary key. Add the Android signing secrets so updates install over earlier versions (docs/developer/README.md)."
+          fi
       - uses: actions/upload-artifact@v7
         with:
           name: android
@@ -221,6 +232,15 @@ jobs:
           mkdir -p "$RUNNER_TEMP/ipa/Payload" ../out
           cp -R "$RUNNER_TEMP/dd/Build/Products/Release-iphoneos/App.app" "$RUNNER_TEMP/ipa/Payload/"
           (cd "$RUNNER_TEMP/ipa" && zip -qr "$GITHUB_WORKSPACE/out/Tolle-$V-ios-unsigned.ipa" Payload)
+      - name: Check the iPhone/iPad app
+        run: |
+          APPDIR="$RUNNER_TEMP/ipa/Payload/App.app"
+          test -f "$APPDIR/public/index.html" || { echo "::error::The web app is missing from the iOS build"; exit 1; }
+          plutil -extract UIDeviceFamily json -o - "$APPDIR/Info.plist"; echo " ← 1 = iPhone, 2 = iPad"
+          plutil -extract CFBundleShortVersionString raw -o - "$APPDIR/Info.plist"
+          plutil -extract MinimumOSVersion raw -o - "$APPDIR/Info.plist"
+          du -sh "$APPDIR" "$GITHUB_WORKSPACE"/out/*.ipa
+          lipo -info "$APPDIR/App"
       - uses: actions/upload-artifact@v7
         with:
           name: ios

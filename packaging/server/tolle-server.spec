@@ -15,6 +15,7 @@ hidden = (
     + collect_submodules("uvicorn")
     + collect_submodules("websockets")
     + collect_submodules("qrcode")
+    + collect_submodules("lxml")
     + ["tzdata", "multipart", "python_multipart", "email.mime.multipart"]
 )
 datas = [(str(APP / "web"), "web"), (str(APP / "VERSION"), ".")] + collect_data_files("tzdata") + collect_data_files("pypdfium2") \
@@ -25,7 +26,7 @@ a = Analysis(
     pathex=[str(APP)],
     datas=datas,
     hiddenimports=hidden,
-    excludes=["tkinter", "matplotlib", "numpy", "pytest", "IPython", "lxml", "yaml", "chardet"],
+    excludes=["tkinter", "matplotlib", "numpy", "pytest", "IPython", "yaml", "chardet"],
     noarchive=False,
 )
 pyz = PYZ(a.pure)

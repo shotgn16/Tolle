@@ -10,6 +10,7 @@
     tolle-server docker check|install|uninstall [--docker-host ssh://user@host] [--with-ollama]
     tolle-server homeassistant install --url URL [--token T] [--port N]
     tolle-server reset-password USERNAME
+    tolle-server selftest              check every bundled library works
 
 Every command accepts --json, which prints one JSON object per line (used by the desktop app).
 """
@@ -32,7 +33,8 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("--data-dir")
     s.add_argument("--mode", choices=["personal", "shared", "server", "docker"])
 
-    sub.add_parser("setup", help="guided setup in the terminal")
+    st = sub.add_parser("setup", help="guided setup in the terminal")
+    st.add_argument("--mode", choices=["personal", "shared", "server", "docker", "homeassistant"], help=argparse.SUPPRESS)
     sub.add_parser("info", help="information about this computer and install")
 
     c = sub.add_parser("configure", help="save how the server runs and its starting AI settings")
@@ -70,6 +72,8 @@ def _parser() -> argparse.ArgumentParser:
     h.add_argument("--url", required=True, help="e.g. http://homeassistant.local:8123")
     h.add_argument("--token", help="long-lived access token (or set TOLLE_HA_TOKEN)")
     h.add_argument("--port", type=int, default=8099)
+
+    sub.add_parser("selftest", help="check every bundled library works (used by the release build)")
 
     r = sub.add_parser("reset-password", help="set a new password for an account")
     r.add_argument("username")
@@ -196,6 +200,82 @@ def cmd_reset_password(args, rep) -> dict:
     return {"ok": True}
 
 
+def _tiny_pdf(text: str) -> bytes:
+    """A minimal, valid one-page PDF containing `text` (with a correct cross-reference table)."""
+    stream = f"BT /F1 12 Tf 10 50 Td ({text}) Tj ET".encode()
+    objs = [b"<</Type/Catalog/Pages 2 0 R>>", b"<</Type/Pages/Kids[3 0 R]/Count 1>>",
+            b"<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 100]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>",
+            b"<</Length %d>>stream\n" % len(stream) + stream + b"\nendstream",
+            b"<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>"]
+    out, offsets = bytearray(b"%PDF-1.4\n"), []
+    for i, o in enumerate(objs, 1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % i + o + b"\nendobj\n"
+    xref = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1)
+    out += b"".join(b"%010d 00000 n \n" % off for off in offsets)
+    out += b"trailer<</Size %d/Root 1 0 R>>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, xref)
+    return bytes(out)
+
+
+def _call_health() -> bool:
+    """Send one request to /api/health straight into the web app (no network needed)."""
+    import asyncio
+
+    from .main import app
+    sent = []
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message):
+        sent.append(message)
+
+    scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "GET", "scheme": "http",
+             "path": "/api/health", "raw_path": b"/api/health", "query_string": b"", "root_path": "",
+             "headers": [(b"host", b"localhost")], "client": ("127.0.0.1", 1), "server": ("127.0.0.1", 80)}
+    asyncio.run(app(scope, receive, send))
+    status = next((m["status"] for m in sent if m["type"] == "http.response.start"), 0)
+    body = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
+    return status == 200 and b'"ok":true' in body
+
+
+def cmd_selftest(args, rep) -> dict:
+    """Read a Word file, a PDF and an image with the bundled libraries – catches a library left out of a build."""
+    import io
+
+    from .core.extract import extract_text
+    from .installer.report import StepError
+    import docx
+    from PIL import Image
+    from cryptography.fernet import Fernet
+
+    checks = {}
+    d = docx.Document()
+    d.add_paragraph("Romans 8:28")
+    buf = io.BytesIO()
+    d.save(buf)
+    checks["word"] = "Romans 8:28" in extract_text("t.docx", "", buf.getvalue())
+    pdf = _tiny_pdf("Psalm 23 notes")
+    checks["pdf"] = "Psalm 23" in extract_text("t.pdf", "application/pdf", pdf)
+    try:
+        import pypdfium2
+        checks["pdf_render"] = len(pypdfium2.PdfDocument(pdf)) == 1
+    except Exception:
+        checks["pdf_render"] = False
+    img = io.BytesIO()
+    Image.new("RGB", (8, 8), "white").save(img, "PNG")
+    checks["images"] = Image.open(io.BytesIO(img.getvalue())).size == (8, 8)
+    f = Fernet(Fernet.generate_key())
+    checks["encryption"] = f.decrypt(f.encrypt(b"x")) == b"x"
+    checks["web_app"] = _call_health()
+    for k, v in checks.items():
+        rep.progress(f"{'✓' if v else '✗'} {k}")
+    if not all(checks.values()):
+        raise StepError("Some parts of Tolle aren't working: " + ", ".join(k for k, v in checks.items() if not v))
+    return {"ok": True, "checks": checks}
+
+
 def main(argv=None) -> None:
     argv = list(sys.argv[1:] if argv is None else argv)
     as_json = "--json" in argv          # accept --json anywhere on the line
@@ -210,12 +290,13 @@ def main(argv=None) -> None:
         return cmd_serve(args)
     if args.cmd == "setup":
         from .installer.wizard import run
-        return run()
+        return run(args.mode)
 
     from .installer.report import Reporter, StepError
     rep = Reporter(args.json)
     handler = {"info": cmd_info, "configure": cmd_configure, "service": cmd_service, "ollama": cmd_ollama,
-               "docker": cmd_docker, "homeassistant": cmd_homeassistant, "reset-password": cmd_reset_password}[args.cmd]
+               "docker": cmd_docker, "homeassistant": cmd_homeassistant, "reset-password": cmd_reset_password,
+               "selftest": cmd_selftest}[args.cmd]
     try:
         result = handler(args, rep) or {}
         rep.done(**result)

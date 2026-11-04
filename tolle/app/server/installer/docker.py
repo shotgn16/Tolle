@@ -7,7 +7,6 @@ import json
 import os
 import subprocess
 import time
-from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
@@ -163,7 +162,7 @@ def install(port: int, rep: Reporter, docker_host: str | None = None, with_ollam
             pass
         time.sleep(2)
     raise StepError(f"The container started, but Tolle didn't answer at {url}.",
-                    f"Check the logs with: docker logs tolle")
+                    "Check the logs with: docker logs tolle")
 
 
 def uninstall(rep: Reporter, docker_host: str | None = None, remove_data: bool = False) -> dict:

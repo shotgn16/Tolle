@@ -3,6 +3,7 @@
 It asks the same questions as the desktop app's wizard and runs the same steps.
 """
 import os
+import shutil
 import sys
 
 from .report import Reporter, StepError
@@ -41,14 +42,25 @@ def choose() -> str:
         print("Please type a number from 1 to 5.")
 
 
-def run() -> None:
+def run(preset_mode: str | None = None) -> None:
     from ..core.config import VERSION
     from . import docker, homeassistant, ollama, service, system
     rep = Reporter(False)
     print(f"\nTolle {VERSION} setup\n" + "=" * 24)
     try:
-        mode = choose()
-        port = int(ask("Port", "8099"))
+        mode = preset_mode or choose()
+        if mode == "server" and not system.is_admin():
+            if system.SYSTEM != "Windows" and shutil.which("sudo"):
+                # Only this choice needs administrator rights, so ask for them now rather than up front.
+                print("\nA server for several people starts with the computer, so it needs administrator rights.")
+                print("You may be asked for your password.\n")
+                os.execvp("sudo", ["sudo", *system.executable(), "setup", "--mode", "server"])
+            raise StepError("A server for several people needs administrator rights to start automatically.",
+                            "Run the setup again as an administrator (sudo on macOS/Linux).")
+        port_text = ask("Port", "8099")
+        if not port_text.isdigit() or not 1 <= int(port_text) <= 65535:
+            raise StepError(f"“{port_text}” isn't a port number.", "Use a number such as 8099.")
+        port = int(port_text)
         rec = ollama.recommend()
 
         if mode == "homeassistant":
@@ -69,7 +81,15 @@ def run() -> None:
         # personal / shared / server: Tolle runs directly on this machine
         ai = {}
         if yes(f"Install Ollama for private, local AI? (suggested model for {rec['ram_gb']} GB RAM: {rec['text_model']})"):
-            ollama.install(rep)
+            try:
+                ollama.install(rep)
+            except StepError as exc:
+                if not (exc.extra.get("needs_admin") and shutil.which("sudo")):
+                    raise
+                print("Installing Ollama needs administrator rights. You may be asked for your password.")
+                import subprocess
+                if subprocess.run(["sudo", *system.executable(), "ollama", "install"]).returncode != 0:
+                    raise StepError("Ollama wasn't installed.", "Install it from https://ollama.com, then run setup again.")
             ollama.pull(rec["text_model"], rep)
             if yes(f"Also download {rec['vision_model']} to read photos of handwritten notes?", False):
                 ollama.pull(rec["vision_model"], rep)

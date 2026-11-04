@@ -35,3 +35,8 @@ packaging/desktop/dist/
 packaging/desktop/resources/
 packaging/server/build/
 packaging/server/dist/
+
+# build output
+build/
+packaging/desktop/dist/
+packaging/desktop/node_modules/

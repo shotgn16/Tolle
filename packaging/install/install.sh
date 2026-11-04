@@ -6,7 +6,10 @@
 # Downloads the Tolle server for this computer, then starts the setup assistant in the terminal.
 # Options (environment variables):
 #   TOLLE_VERSION=0.2.0     install a specific version instead of the latest
-#   TOLLE_DIR=/opt/tolle    where to put the program before setup moves it (default: a temporary folder)
+#   TOLLE_DIR=/some/folder  where to keep the program (default: ~/.local/share/tolle-server on Linux,
+#                           ~/Library/Application Support/Tolle/server-program on macOS).
+#                           A server for several people is copied to /opt/tolle (Linux) or
+#                           /Library/Application Support/Tolle/server (macOS) during setup.
 set -eu
 
 REPO="shotgn16/Tolle"
@@ -34,8 +37,11 @@ else
   url="https://github.com/$REPO/releases/download/v$v/tolle-server-$v-$os-$arch.tar.gz"
 fi
 
-dir=${TOLLE_DIR:-$(mktemp -d)}
+if [ "$os" = macos ]; then default_dir="$HOME/Library/Application Support/Tolle/server-program"
+else default_dir="${XDG_DATA_HOME:-$HOME/.local/share}/tolle-server"; fi
+dir=${TOLLE_DIR:-$default_dir}
 mkdir -p "$dir"
+rm -rf "$dir/tolle-server"
 say "Downloading Tolle for $os ($arch)…"
 curl -fL --progress-bar "$url" -o "$dir/tolle-server.tar.gz" || fail "Download failed: $url"
 tar -C "$dir" -xzf "$dir/tolle-server.tar.gz"
@@ -43,16 +49,16 @@ rm -f "$dir/tolle-server.tar.gz"
 if [ "$os" = macos ]; then xattr -dr com.apple.quarantine "$dir/tolle-server" 2>/dev/null || true; fi
 
 bin="$dir/tolle-server/tolle-server"
+
+# Put a "tolle-server" command on the PATH when ~/.local/bin is used (most Linux desktops and servers).
+if [ "$os" = linux ] && [ "$(id -u)" -ne 0 ]; then
+  mkdir -p "$HOME/.local/bin" && ln -sf "$bin" "$HOME/.local/bin/tolle-server"
+fi
+
 say ""
-say "Starting the Tolle setup assistant."
-say "Choose 'A server for several people' to run Tolle in the background from start-up."
+say "Tolle is downloaded to: $dir/tolle-server"
+say "Starting the Tolle setup assistant…"
 say ""
 # Read answers from the keyboard even when this script itself is piped into sh.
-if [ "$(id -u)" -eq 0 ]; then
-  "$bin" setup < /dev/tty
-elif command -v sudo >/dev/null 2>&1; then
-  say "(You may be asked for your password – installing a background service needs administrator rights.)"
-  sudo "$bin" setup < /dev/tty
-else
-  "$bin" setup < /dev/tty
-fi
+# Setup runs as you; if you choose a server for several people it asks for administrator rights itself.
+"$bin" setup < /dev/tty

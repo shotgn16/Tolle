@@ -4,7 +4,6 @@ import os
 import subprocess
 import tempfile
 import time
-import zipfile
 from pathlib import Path
 
 import httpx
@@ -84,9 +83,14 @@ def install(rep: Reporter) -> dict:
                 # ditto keeps the app's signature and permissions intact
                 res = subprocess.run(["ditto", "-x", "-k", str(z), "/Applications"], capture_output=True, text=True)
                 if res.returncode != 0:
-                    with zipfile.ZipFile(z) as zf:
-                        zf.extractall(Path.home() / "Applications")
-                    app = Path.home() / "Applications" / "Ollama.app"
+                    # Not an administrator: install into your own Applications folder instead.
+                    mine = Path.home() / "Applications"
+                    mine.mkdir(exist_ok=True)
+                    res = subprocess.run(["ditto", "-x", "-k", str(z), str(mine)], capture_output=True, text=True)
+                    if res.returncode != 0:
+                        raise StepError("Ollama couldn't be copied into Applications.",
+                                        "Install Ollama yourself from https://ollama.com/download, then try again.")
+                    app = mine / "Ollama.app"
         subprocess.run(["open", "-g", "-a", str(app)], check=False)
 
     elif SYSTEM == "Windows":

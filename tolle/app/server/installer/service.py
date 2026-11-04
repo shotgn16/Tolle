@@ -92,23 +92,30 @@ def install(scope: str, port: int, host: str, rep: Reporter, run_as: str | None 
     data_dir.mkdir(parents=True, exist_ok=True)
     mode = "server" if scope == "system" else "shared"
 
-    if SYSTEM == "Linux":
-        result = _linux(scope, port, host, data_dir, mode, rep)
-    elif SYSTEM == "Darwin":
-        result = _mac(scope, port, host, data_dir, mode, rep, run_as)
-    elif SYSTEM == "Windows":
-        result = _windows(scope, port, host, data_dir, mode, rep)
-    else:
-        raise StepError(f"Background services aren't supported on {SYSTEM}.")
+    try:
+        if SYSTEM == "Linux":
+            result = _linux(scope, port, host, data_dir, mode, rep, run_as)
+        elif SYSTEM == "Darwin":
+            result = _mac(scope, port, host, data_dir, mode, rep, run_as)
+        elif SYSTEM == "Windows":
+            result = _windows(scope, port, host, data_dir, mode, rep)
+        else:
+            raise StepError(f"Background services aren't supported on {SYSTEM}.")
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or exc.stdout or "").strip().splitlines()
+        raise StepError(f"Setting up the background service failed: {' '.join(exc.cmd)} – "
+                        f"{detail[-1] if detail else f'exit code {exc.returncode}'}",
+                        f"You can still start Tolle yourself: {' '.join(executable())} serve --port {port}")
     if scope == "system":
         _open_firewall(port, rep)
     return {**result, "data_dir": str(data_dir), "port": port}
 
 
-def _linux(scope, port, host, data_dir, mode, rep):
-    if not shutil.which("systemctl"):
-        raise StepError("This Linux system doesn't use systemd.",
-                        f"Start Tolle at boot with your init system: {' '.join(executable())} serve --port {port}")
+def _linux(scope, port, host, data_dir, mode, rep, run_as=None):
+    # systemctl can be installed without systemd running (containers, WSL without systemd, some NAS systems).
+    if not shutil.which("systemctl") or not Path("/run/systemd/system").exists():
+        raise StepError("This Linux system isn't running systemd, so Tolle can't set itself up to start automatically.",
+                        f"Start Tolle with your own start-up method: {' '.join(executable())} serve --port {port}")
     cmd = (_install_program(rep) if scope == "system" else executable()) + _serve_args(port, host, data_dir, mode)
     unit = f"""[Unit]
 Description=Tolle Bible study server
@@ -169,15 +176,52 @@ def _mac(scope, port, host, data_dir, mode, rep, run_as):
     return {"service": str(path)}
 
 
-def _windows(scope, port, host, data_dir, mode, rep):
-    cmd = (_install_program(rep) if scope == "system" else executable()) + _serve_args(port, host, data_dir, mode)
-    tr = subprocess.list2cmdline(cmd)
-    _run(["schtasks", "/Delete", "/TN", WIN_TASK, "/F"], check=False)
+def _task_xml(cmd: list[str], scope: str) -> str:
+    """Task Scheduler definition. Unlike a plain "schtasks /Create", this has no 3-day time limit,
+    starts on battery power and restarts Tolle if it stops unexpectedly."""
+    from xml.sax.saxutils import escape
+    program, args = cmd[0], subprocess.list2cmdline(cmd[1:])
     if scope == "system":
-        args = ["schtasks", "/Create", "/TN", WIN_TASK, "/TR", tr, "/SC", "ONSTART", "/RU", "SYSTEM", "/RL", "HIGHEST", "/F"]
+        trigger = "<BootTrigger><Enabled>true</Enabled></BootTrigger>"
+        principal = "<Principal id=\"Author\"><UserId>S-1-5-18</UserId><RunLevel>HighestAvailable</RunLevel></Principal>"
     else:
-        args = ["schtasks", "/Create", "/TN", WIN_TASK, "/TR", tr, "/SC", "ONLOGON", "/F"]
-    res = _run(args, check=False)
+        trigger = "<LogonTrigger><Enabled>true</Enabled></LogonTrigger>"
+        principal = "<Principal id=\"Author\"><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal>"
+    return f"""<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo><Description>Tolle Bible study server</Description></RegistrationInfo>
+  <Triggers>{trigger}</Triggers>
+  <Principals>{principal}</Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RestartOnFailure><Interval>PT1M</Interval><Count>999</Count></RestartOnFailure>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+  </Settings>
+  <Actions Context="Author">
+    <Exec><Command>{escape(program)}</Command><Arguments>{escape(args)}</Arguments></Exec>
+  </Actions>
+</Task>
+"""
+
+
+def _windows(scope, port, host, data_dir, mode, rep):
+    import tempfile
+    cmd = (_install_program(rep) if scope == "system" else executable()) + _serve_args(port, host, data_dir, mode)
+    _run(["schtasks", "/End", "/TN", WIN_TASK], check=False)
+    _run(["schtasks", "/Delete", "/TN", WIN_TASK, "/F"], check=False)
+    with tempfile.NamedTemporaryFile("w", suffix=".xml", delete=False, encoding="utf-16") as fh:
+        fh.write(_task_xml(cmd, scope))
+        xml_path = fh.name
+    try:
+        res = _run(["schtasks", "/Create", "/TN", WIN_TASK, "/XML", xml_path, "/F"], check=False)
+    finally:
+        os.unlink(xml_path)
     if res.returncode != 0:
         raise StepError(f"Windows couldn't create the start-up task: {res.stderr.strip() or res.stdout.strip()}",
                         "Run the setup again as an administrator.")
@@ -222,5 +266,6 @@ def status() -> dict:
     elif SYSTEM == "Windows":
         res = _run(["schtasks", "/Query", "/TN", WIN_TASK, "/V", "/FO", "LIST"], check=False)
         if res.returncode == 0:
-            out["system" if "SYSTEM" in res.stdout else "user"] = True
+            system = "SYSTEM" in res.stdout or "S-1-5-18" in res.stdout
+            out["system" if system else "user"] = True
     return out

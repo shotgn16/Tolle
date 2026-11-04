@@ -16,8 +16,11 @@ if (-not $version) {
   $version = (Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest").tag_name.TrimStart('v')
 }
 $url = "https://github.com/$Repo/releases/download/v$version/tolle-server-$version-windows-x64.zip"
-$dir = Join-Path $env:TEMP "tolle-$version"
+# A permanent home for the program (a server for several people is copied to Program Files during setup).
+$dir = if ($env:TOLLE_DIR) { $env:TOLLE_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\Tolle Server' }
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
+$old = Join-Path $dir 'tolle-server'
+if (Test-Path $old) { Remove-Item -Recurse -Force $old }
 
 Write-Host "Downloading Tolle $version…"
 $zip = Join-Path $dir 'tolle-server.zip'
@@ -26,6 +29,7 @@ Expand-Archive -Path $zip -DestinationPath $dir -Force
 Remove-Item $zip
 
 Write-Host ''
+Write-Host "Tolle is downloaded to: $old"
 Write-Host 'Starting the Tolle setup assistant.'
 Write-Host "Choose 'A server for several people' to run Tolle in the background from start-up."
 & (Join-Path $dir 'tolle-server\tolle-server.exe') setup
