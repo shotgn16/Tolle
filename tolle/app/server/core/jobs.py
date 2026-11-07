@@ -26,7 +26,7 @@ from . import db, settings
 from .ai import prompts, repetition
 from .ai.providers import AIError, chat
 from .bible import parse_refs
-from .crypto import dec_json, enc
+from .crypto import dec, dec_json, enc
 
 EXECUTOR = ThreadPoolExecutor(max_workers=3, thread_name_prefix="ai")
 KINDS: dict[str, tuple[Callable, Callable]] = {}
@@ -122,6 +122,10 @@ def create(user_id: int, kind: str, params: dict) -> int:
     return job_id
 
 
+# What a task is about, for the Tasks screen: the first of these that the request has.
+_SUBJECT_KEYS = ("title", "passages", "query", "theme", "focus", "filename")
+
+
 def _run(job_id: int, user_id: int, kind: str, params: dict) -> None:
     prep, fin = KINDS[kind]
     try:
@@ -158,6 +162,61 @@ def get(user_id: int, job_id: int) -> dict:
     if r["status"] == "client":
         out["client"] = dec_json(r["messages_enc"], None)
     return out
+
+
+def _subject(user_id: int, params: dict) -> str:
+    for k in _SUBJECT_KEYS:
+        v = str(params.get(k) or "").strip()
+        if v:
+            return v[:120]
+    if params.get("study_id"):
+        r = db.q1("SELECT title_enc FROM studies WHERE id=? AND user_id=?", (params["study_id"], user_id))
+        if r:
+            return _plain(r["title_enc"])[:120]
+    if params.get("session_id"):
+        r = db.q1("SELECT title_enc FROM calling_sessions WHERE id=? AND user_id=?", (params["session_id"], user_id))
+        if r:
+            return _plain(r["title_enc"])[:120]
+    return ""
+
+
+def _plain(value) -> str:
+    try:
+        return dec(value) or ""
+    except Exception:
+        return ""
+
+
+def _link(kind: str, params: dict, result: dict | None) -> str:
+    res = result or {}
+    if res.get("session_id") or kind.startswith("calling"):
+        sid = res.get("session_id") or params.get("session_id")
+        return f"#/calling/{sid}" if sid else ""
+    sid = res.get("study_id") or params.get("study_id")
+    return f"#/study/{sid}" if sid else ""
+
+
+def list_jobs(user_id: int, limit: int = 40) -> list[dict]:
+    """Recent AI tasks for the Tasks screen, newest first."""
+    rows = db.q("SELECT * FROM jobs WHERE user_id=? AND hidden=0 AND created_at>? ORDER BY id DESC LIMIT ?",
+                 (user_id, time.time() - 14 * 86400, limit))
+    out = []
+    for r in rows:
+        status, error = r["status"], r["error"]
+        params = dec_json(r["params_enc"], {}) or {}
+        result = dec_json(r["result_enc"], None)
+        out.append({"id": r["id"], "kind": r["kind"], "status": status, "progress": r["progress"], "error": error,
+                    "subject": _subject(user_id, params), "link": _link(r["kind"], params, result) if status == "done" else "",
+                    "created_at": r["created_at"], "updated_at": r["updated_at"]})
+    return out
+
+
+def dismiss(user_id: int, job_id: int | None = None) -> None:
+    """Hide one finished task, or (job_id None) every finished task, from the Tasks screen."""
+    if job_id is None:
+        db.ex("UPDATE jobs SET hidden=1 WHERE user_id=? AND status IN ('done','error')", (user_id,))
+    else:
+        db.ex("UPDATE jobs SET hidden=1 WHERE id=? AND user_id=? AND status IN ('done','error')", (job_id, user_id))
 
 
 def complete_client(user_id: int, job_id: int, text: str, thinking: str = "") -> dict:

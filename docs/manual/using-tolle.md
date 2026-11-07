@@ -71,6 +71,16 @@ Come back to a reflection any time from the list. Please share what you sense wi
 - **Time in the YouVersion app** – logged automatically through the Home Assistant Companion app (Android) or Shortcuts (iPhone); see [Phones & tablets](phones-and-tablets.md#time-in-the-youversion-app). Sessions appear as “Time in the Bible app”, count towards your streak, and Tolle can ask which passage you read.
 - **Reminder** – **Settings → Reading → Reading reminder**. If you haven't logged any reading by the chosen time, Tolle notifies your selected devices with a link to log it.
 
+## Tasks
+
+AI work can take a few minutes. You don't have to wait on the screen: start a study, then read the Bible, look at other notes, or put the app away. The work carries on.
+
+- **Tasks** in the menu (the pulse icon at the top of the phone screen) lists everything the AI is working on, with a count of what's still running.
+- When a task finishes while you're on another screen, a message says it's ready. Tap **Open** to go straight to the result. Results are also saved in your study notes as usual.
+- Finished tasks stay listed for two weeks. Remove one with **×**, or all of them with **Clear finished**.
+- If you use an **on-device** AI model, it can only run while Tolle is open. A task that is waiting for it shows **Continue on this device**.
+- If Tolle (or the app, when it runs on its own) was closed or restarted part-way through, the task shows *Didn't finish*. Run it again.
+
 ## Devices & notifications
 
 Every browser or app that signs in appears under **Settings → Devices & notifications** with its type, address and when it was last seen. Rename devices, choose which get notifications, send a test, or forget a device (signs it out). Allow notifications on each device with the button at the top. Home Assistant notify services (e.g. your phone's Companion app) can be added too.

@@ -46,6 +46,7 @@ async function setup(context) {
       if (u.pathname === '/api/chat') {
         const body = JSON.parse(req.postData());
         chats.push(body);
+        if (JSON.stringify(body.messages).includes('SLOWTASK')) await new Promise((r) => setTimeout(r, 5000));
         const last = body.messages[body.messages.length - 1].content;
         const content = `## Overview\nFake answer number ${chats.length}. The prompt began: ${String(last).slice(0, 60).replace(/\n/g, ' ')}`;
         return route.fulfill({ status: 200, headers: cors, json: { message: { role: 'assistant', content, thinking: body.think ? 'Considering…' : '' }, done: true } });
@@ -233,6 +234,30 @@ ok(back.before === 4 && back.after === 5, 'backup restores a deleted study');
 ok(/Wrong password/.test(back.wrong), 'wrong backup password is refused');
 ok(!back.plain, 'backup file is encrypted');
 ok(/living sacrifice/.test(back.file), 'uploaded files come back with the backup');
+
+console.log('Tasks');
+await page.goto(`${ORIGIN}/index.html#/research`);
+await page.waitForSelector('.page-head', { timeout: 15000 });
+await call(`api.post('api/ai/jobs', { kind: 'passage_study', passages: 'Mark 4:35-41', focus: 'SLOWTASK storm' }); return true;`);
+await page.goto(`${ORIGIN}/index.html#/notes`);   // leave the screen while it works
+if (process.env.DEBUG_TASKS) { for (let i = 0; i < 4; i++) { console.log(JSON.stringify(await call(`return (await api.get('api/ai/jobs')).slice(0,2);`)), await page.evaluate(() => [...document.querySelectorAll("[data-task-count]")].map(e=>e.outerHTML+"|"+e.hidden).join(" "))); await page.waitForTimeout(1000); } }
+await page.waitForFunction(() => document.querySelector('#nav [data-task-count]')?.textContent === '1', null, { timeout: 15000 }).then(() => ok(true, 'menu shows 1 task in progress'), () => ok(false, 'menu shows 1 task in progress'));
+await page.goto(`${ORIGIN}/index.html#/tasks`);
+await page.waitForSelector('.task-working', { timeout: 10000 }).then(() => ok(true, 'Tasks screen lists the running task'), () => ok(false, 'Tasks screen lists the running task'));
+ok(/Passage study/.test(await page.textContent('.tasks')) && /Mark 4:35-41/.test(await page.textContent('.tasks')), 'task is named, with what it is about');
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/10-tasks-running.png` });
+await page.goto(`${ORIGIN}/index.html#/notes`);
+await page.waitForSelector('.task-toast', { timeout: 20000 }).then(() => ok(true, '“Passage study is ready” message appears on another screen'), () => ok(false, '“ready” message appears on another screen'));
+const openHref = await page.getAttribute('.task-toast .toast-action', 'href').catch(() => '');
+ok(/^#\/study\/\d+$/.test(openHref || ''), 'message has an Open link to the study');
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/11-task-ready.png` });
+await page.reload();
+await page.goto(`${ORIGIN}/index.html#/tasks`);
+await page.waitForSelector('.task-done', { timeout: 15000 });
+ok((await page.$$('.task-done')).length >= 5, 'finished tasks are still listed after restarting the app');
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/12-tasks.png` });
+await page.click('text=Clear finished');
+await page.waitForSelector('.tasks .empty', { timeout: 10000 }).then(() => ok(true, 'Clear finished empties the list'), () => ok(false, 'Clear finished empties the list'));
 
 console.log('Screens');
 for (const [hash, name, sel] of [['#/', '02-home', '.page-head'], [`#/study/${study.study_id}`, '03-study', '.note.ai'],

@@ -66,7 +66,19 @@ export class ApiError extends Error {
   constructor(status, msg) { super(msg); this.status = status; }
 }
 
+// Tell the Tasks watcher straight away when a request starts AI work.
+function noteJobs(method, path, out) {
+  if (method === 'POST' && out && (/^\/?api\/ai\/jobs$/.test(path) || out.job || out.jobs?.length)) {
+    window.dispatchEvent(new Event('tolle:job-started'));
+  }
+  return out;
+}
+
 export async function api(method, path, body, opts = {}) {
+  return noteJobs(method, path, await request(method, path, body, opts));
+}
+
+async function request(method, path, body, opts = {}) {
   if (mode.device()) {
     const eng = await deviceEngine();
     try {
@@ -116,7 +128,15 @@ export async function runJob(kind, params, onProgress = () => {}) {
   return waitJob(id, onProgress);
 }
 
+/** Jobs this page is waiting on right now (the Tasks screen offers "Continue" for the others). */
+export const watching = new Set();
+
 export async function waitJob(id, onProgress = () => {}) {
+  watching.add(Number(id));
+  try { return await waitJobInner(id, onProgress); } finally { watching.delete(Number(id)); }
+}
+
+async function waitJobInner(id, onProgress) {
   let last = '';
   for (;;) {
     const job = await get(`api/ai/jobs/${id}`);

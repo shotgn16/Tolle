@@ -21,6 +21,12 @@
 - Release by running **Actions → Build installers** with a version number; GitHub builds everything and
   publishes the release.
 
+**Tasks**
+- New **Tasks** screen (menu, and the pulse icon on phones) shows AI work in progress and finished, so
+  nothing is lost if you leave the screen or put the app in the background.
+- A message with an **Open** button appears when a task finishes while you're elsewhere.
+- Tasks are kept across restarts; on-device AI tasks can be continued from the list.
+
 **Other changes**
 - The on-device AI library is included in the app instead of loading from the internet.
 - Opening uploaded files and saving backups uses the share sheet in the phone apps.

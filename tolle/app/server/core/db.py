@@ -96,7 +96,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     error TEXT,
     progress TEXT,
     created_at REAL NOT NULL,
-    updated_at REAL NOT NULL
+    updated_at REAL NOT NULL,
+    hidden INTEGER NOT NULL DEFAULT 0   -- dismissed from the Tasks screen
 );
 CREATE TABLE IF NOT EXISTS source_cache (
     url TEXT PRIMARY KEY,
@@ -162,9 +163,12 @@ def init(extra_schemas: list[str] = ()) -> None:
         for sql in extra_schemas:
             if sql:
                 c.executescript(sql)
+        # Older databases: the Tasks screen's "dismiss" column.
+        if "hidden" not in {r[1] for r in c.execute("PRAGMA table_info(jobs)")}:
+            c.execute("ALTER TABLE jobs ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0")
         # Jobs interrupted by a restart can never finish.
         c.execute(
-            "UPDATE jobs SET status='error', error='Interrupted by restart', updated_at=? "
-            "WHERE status IN ('queued','running')",
+            "UPDATE jobs SET status='error', error='Tolle was restarted before this finished. Please run it again.', "
+            "updated_at=? WHERE status IN ('queued','running')",
             (time.time(),),
         )

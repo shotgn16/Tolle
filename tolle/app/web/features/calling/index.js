@@ -3,7 +3,8 @@ import { renderList, renderSession } from './views.js';
 
 export default {
   id: 'calling',
-  local: () => import('./local.js'),   // used when the app runs on its own (no server)
+  local: () => import('./local.js'),
+  tasks: { calling_turn: 'Calling reflection', calling_summary: 'Calling summary' },   // names of this feature's AI tasks on the Tasks screen   // used when the app runs on its own (no server)
   nav: [{ route: 'calling', href: '#/calling', icon: 'calling', label: 'Calling', group: 'Reflect' }],
   routes: [
     [/^\/calling$/, 'calling', (view) => renderList(view)],

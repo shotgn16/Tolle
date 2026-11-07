@@ -151,6 +151,23 @@ def ai_job_create(body: dict = Body(...), user: User = Depends(current_user)):
     return {"id": jobs.create(user.id, kind, body)}
 
 
+@router.get("/ai/jobs")
+def ai_job_list(user: User = Depends(current_user)):
+    return jobs.list_jobs(user.id)
+
+
+@router.post("/ai/jobs/clear")
+def ai_job_clear(user: User = Depends(current_user)):
+    jobs.dismiss(user.id)
+    return {"ok": True}
+
+
+@router.delete("/ai/jobs/{job_id}")
+def ai_job_dismiss(job_id: int, user: User = Depends(current_user)):
+    jobs.dismiss(user.id, job_id)
+    return {"ok": True}
+
+
 @router.get("/ai/jobs/{job_id}")
 def ai_job_get(job_id: int, user: User = Depends(current_user)):
     return jobs.get(user.id, job_id)

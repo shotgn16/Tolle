@@ -81,6 +81,9 @@ function coreRoutes() {
   });
   r('GET', 'ai/ondevice-models', () => ONDEVICE_MODELS);
   r('POST', 'ai/jobs', ({ body }) => { const { kind, ...rest } = body; return { id: jobs.create(kind, rest, enabled) }; });
+  r('GET', 'ai/jobs', () => jobs.list());
+  r('POST', 'ai/jobs/clear', () => { jobs.dismiss(); return { ok: true }; });
+  r('DELETE', 'ai/jobs/:id', ({ params }) => { jobs.dismiss(params.id); return { ok: true }; });
   r('GET', 'ai/jobs/:id', ({ params }) => jobs.get(params.id));
   r('POST', 'ai/jobs/:id/complete', ({ params, body }) => jobs.completeClient(params.id, body.text, body.thinking));
   r('POST', 'ai/jobs/:id/fail', ({ params, body }) => { jobs.failClient(params.id, body.error || 'On-device model failed'); return { ok: true }; });
@@ -140,13 +143,14 @@ async function unpackBackup(text, password) {
 }
 
 // ---------------------------------------------------------------- start-up
-const COLLECTIONS = ['settings', 'instructions', 'features', 'studies', 'entries', 'files', 'source_cache',
+const COLLECTIONS = ['jobs', 'settings', 'instructions', 'features', 'studies', 'entries', 'files', 'source_cache',
   'calling_sessions', 'calling_messages', 'reading_sessions', 'app_sessions'];
 
 export function start(featureDefs) {
   if (!ready) {
     ready = (async () => {
       await initStore(COLLECTIONS);
+      jobs.recover();
       coreRoutes();
       for (const f of featureDefs) {
         if (!f.local) continue;

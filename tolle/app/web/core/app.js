@@ -7,6 +7,7 @@ import { activeFeatures, setEnabled } from './registry.js';
 import { h, toast, errToast, loadSettings, state, field } from './ui.js';
 import * as dashboard from './views/dashboard.js';
 import * as settingsView from './views/settings.js';
+import * as tasksView from './views/tasks.js';
 
 const view = document.getElementById('view');
 let cleanup = null;
@@ -16,6 +17,7 @@ let routes = [];
 function navItems() {
   const items = [{ route: 'dashboard', href: '#/', icon: 'home', label: 'Home', group: null, order: 0, tab: 'Home' }];
   activeFeatures().forEach((f, i) => (f.nav || []).forEach((n, j) => items.push({ order: 10 + i * 10 + j, ...n })));
+  items.push({ route: 'tasks', href: '#/tasks', icon: 'tasks', label: 'Tasks', group: '', order: 998, count: true });
   items.push({ route: 'settings', href: '#/settings', icon: 'settings', label: 'Settings', group: '', order: 999 });
   return items.sort((a, b) => a.order - b.order);
 }
@@ -33,7 +35,8 @@ function buildNav() {
   groups.sort((a, b) => (a.key === null ? -1 : b.key === null ? 1 : a.key === '' ? 1 : b.key === '' ? -1 : 0));
   document.getElementById('nav').replaceChildren(...groups.flatMap((g) => [
     g.key ? h('div', { class: 'nav-group' }, g.key) : g.key === '' ? h('div', { style: { height: '10px' } }) : null,
-    ...g.items.map((it) => h('a', { href: it.href, 'data-route': it.route }, icon(it.icon), it.label)),
+    ...g.items.map((it) => h('a', { href: it.href, 'data-route': it.route }, icon(it.icon), it.label,
+      it.count ? h('span', { class: 'count', 'data-task-count': '', hidden: true }) : null)),
   ].filter(Boolean)));
   const tabs = items.filter((it) => it.tab).slice(0, 4);
   document.getElementById('tabbar').replaceChildren(
@@ -45,6 +48,7 @@ function buildNav() {
   routes = [
     [/^\/?$/, 'dashboard', (v) => dashboard.render(v)],
     ...activeFeatures().flatMap((f) => f.routes || []),
+    [/^\/tasks$/, 'tasks', (v) => tasksView.render(v)],
     [/^\/settings$/, 'settings', (v, m, q) => settingsView.render(v, q)],
   ];
 }
@@ -198,7 +202,7 @@ function startLoops() {
   loops.forEach(clearInterval);
   featureStops.forEach((stop) => stop && stop());
   const poll = async () => {
-    if (!token.get()) return;
+    if (!signedIn()) return;
     try {
       for (const n of await get('api/notifications/pending')) showNotification(n);
     } catch { /* offline */ }
@@ -207,6 +211,8 @@ function startLoops() {
   loops = [setInterval(poll, 45000)];
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') poll(); });
   featureStops = activeFeatures().map((f) => (f.onStart ? f.onStart() : null));
+  tasksView.startWatcher();
+  featureStops.push(tasksView.stopWatcher);
 }
 
 async function showNotification(n) {

@@ -268,3 +268,36 @@ table.simple tr:last-child td { border-bottom: 0; }
 .welcome-ai { border-color: var(--brand); background: var(--brand-soft); }
 .welcome-ai ul { margin: 6px 0 8px; padding-left: 20px; }
 .welcome-ai li { margin: 4px 0; }
+
+/* Tasks: AI work in progress and finished */
+.count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--ai); color: #fff;
+  font-size: .7rem; font-weight: 700; line-height: 18px; text-align: center; }
+#nav a .count { margin-left: auto; }
+.count[hidden] { display: none; }
+.tasks-btn { position: relative; color: var(--ink); text-decoration: none; display: inline-flex; }
+.tasks-btn .count { position: absolute; top: -2px; right: -4px; }
+.tasks-head { font-size: .82rem; font-weight: 650; color: var(--muted); margin: 22px 0 8px; }
+.tasks-head:first-child { margin-top: 4px; }
+.task { display: flex; gap: 14px; align-items: center; padding: 14px 16px; margin-bottom: 8px; }
+.task-icon { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: var(--surface-2); color: var(--muted); }
+.task-working .task-icon, .task-waiting .task-icon { background: var(--ai-soft); color: var(--ai); }
+.task-done .task-icon { background: var(--brand-soft); color: var(--brand-text); }
+.task-failed .task-icon { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+.task-main { flex: 1; min-width: 0; }
+.task-title { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.task-title span { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.task-detail { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; font-size: .86rem; color: var(--muted); }
+.task-status { font-weight: 650; }
+.task-status.working, .task-status.waiting { color: var(--ai); }
+.task-status.done { color: var(--brand-text); }
+.task-status.failed { color: var(--danger); }
+.task-when { opacity: .8; }
+.task-actions { display: flex; gap: 6px; align-items: center; flex: none; }
+.task-toast { display: flex; gap: 14px; align-items: center; }
+.toast .toast-action { color: inherit; font-weight: 700; text-decoration: underline; white-space: nowrap; }
+.toast.error { display: flex; gap: 14px; align-items: center; }
+@media (max-width: 560px) {
+  .task { flex-wrap: wrap; }
+  .task-actions { width: 100%; justify-content: flex-end; }
+}

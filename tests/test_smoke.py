@@ -62,6 +62,14 @@ def test_full_flow():
         assert c.post(f"/api/ai/jobs/{cs['job']}/complete", json={"text": "Welcome"}, headers=H).json()["status"] == "done"
         assert c.get(f"/api/calling/{cs['id']}", headers=H).json()["messages"][0]["role"] == "ai"
 
+        # the Tasks screen lists it, links to the result, and can dismiss it
+        tasks = c.get("/api/ai/jobs", headers=H).json()
+        t = next(x for x in tasks if x["id"] == cs["job"])
+        assert t["kind"] == "calling_turn" and t["status"] == "done" and t["link"] == f"#/calling/{cs['id']}"
+        assert t["subject"]   # the session's (decrypted) title
+        assert c.delete(f"/api/ai/jobs/{cs['job']}", headers=H).json()["ok"]
+        assert all(x["id"] != cs["job"] for x in c.get("/api/ai/jobs", headers=H).json())
+
         # tracker
         c.post("/api/tracker/reading/manual", json={"book": "jn", "chapter": 3, "minutes": 5}, headers=H)
         st = c.get("/api/tracker/stats?days=2", headers=H).json()

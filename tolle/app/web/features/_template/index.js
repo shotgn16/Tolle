@@ -37,6 +37,7 @@ export default {
   tiles: [{ href: '#/prayer', icon: 'calling', title: 'Prayer list', text: 'Keep track of prayer requests', ai: true }],
   // dashboard: [{ order: 30, render: (data) => h('div', {}, '…') }],
   // settingsTabs: [{ id: 'prayer', label: 'Prayer', render: (root) => root.append(h('p', {}, '…')) }],
+  // tasks: { my_job: 'My task' },       // how your AI tasks are named on the Tasks screen
   // local: () => import('./local.js'),   // lets the feature work in the phone app with no server
   // onStart: () => { const t = setInterval(() => {}, 60000); return () => clearInterval(t); },
 };
