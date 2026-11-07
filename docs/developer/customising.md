@@ -101,6 +101,27 @@ Keep two rules so Tolle stays trustworthy:
 
 Add a test for your feature in `tests/`. The existing tests show how to sign in and call routes.
 
+### Make your feature work on a phone with no server
+
+The phone apps can run without a server. For your feature to work there too, add a `local.js` next to its screens and point to it from `index.js` with `local: () => import('./local.js')`. It mirrors your Python routes and jobs in JavaScript:
+
+```js
+import * as J from '../../core/local/jobs.js';
+import { db } from '../../core/local/store.js';
+
+export function register(engine) {
+  engine.route('GET', 'myfeature/items', () => db.all('studies'));          // same path as the server
+  engine.jobs({
+    my_job: [
+      async ({ params, cfg }) => ({ messages: [J.systemMessage(cfg), { role: 'user', content: '…' }], meta: {} }),
+      async ({ params, text }) => ({ saved: true }),
+    ],
+  });
+}
+```
+
+The `library`, `research` and `reading` features are complete examples. Without a `local.js`, the feature is simply hidden from view on a phone running on its own.
+
 ## Add an AI provider
 
 In `tolle/app/server/core/ai/providers.py`:

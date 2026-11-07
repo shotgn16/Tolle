@@ -30,9 +30,9 @@ Download the installer for your computer from the **[latest release](https://git
 
 | Your computer | Download | Guide |
 |---|---|---|
-| Windows 10 or 11 | `Tolle-Setup-…-windows-x64.exe` | [Windows](docs/manual/install-windows.md) |
-| Mac (Apple silicon or Intel) | `Tolle-…-macos-arm64.dmg` or `…-macos-x64.dmg` | [Mac](docs/manual/install-macos.md) |
-| Linux | `Tolle-…-linux-x86_64.AppImage` or `…-linux-amd64.deb` (ARM too) | [Linux](docs/manual/install-linux.md) |
+| Windows 10 or 11 | `Tolle-…-Windows-x64-Setup.exe` | [Windows](docs/manual/install-windows.md) |
+| Mac (Apple silicon or Intel) | `Tolle-…-macOS-AppleSilicon.dmg` or `…-macOS-Intel.dmg` | [Mac](docs/manual/install-macos.md) |
+| Linux | `Tolle-…-Linux-x86_64.AppImage` or `…-Linux-amd64.deb` (ARM too) | [Linux](docs/manual/install-linux.md) |
 
 The first time Tolle opens, a setup assistant asks how you want to use it and does the rest:
 
@@ -47,7 +47,7 @@ It can also install a free, private AI model for you (Ollama), or connect ChatGP
 
 **A server with no screen?** One command does it: [Linux & macOS](docs/manual/install-linux.md#a-server-with-no-screen) · [Windows Server](docs/manual/install-windows.md#windows-server-without-a-desktop).
 
-**Phones and tablets:** the Android app (`.apk`) and the iPhone & iPad app are on the release page too. Scan a code on your computer to connect. See [Phones & tablets](docs/manual/phones-and-tablets.md).
+**Phones and tablets:** `Tolle-…-Android.apk` and `Tolle-…-iPhone-iPad-unsigned.ipa` are on the release page too. They work **on their own** – everything stored encrypted on the device, with an AI on the phone itself or Ollama, ChatGPT, Gemini or Claude – or connect to your Tolle server by scanning a code. See [Phones & tablets](docs/manual/phones-and-tablets.md).
 
 **Docker or Home Assistant directly:** [Docker](docs/manual/install-docker.md) · [Home Assistant](docs/manual/install-home-assistant.md).
 

@@ -1,7 +1,7 @@
 {
   "name": "tolle-desktop",
   "productName": "Tolle",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Tolle \u2013 AI-assisted Bible study. Desktop app with built-in server and setup assistant.",
   "author": "Shotgn16",
   "license": "MIT",
@@ -75,7 +75,7 @@
       "createStartMenuShortcut": true,
       "runAfterFinish": true,
       "shortcutName": "Tolle",
-      "artifactName": "Tolle-Setup-${version}-windows-${arch}.${ext}",
+      "artifactName": "Tolle-${version}-Windows-${arch}-Setup.${ext}",
       "license": "build/license.txt",
       "include": "build/installer.nsh"
     },
@@ -88,7 +88,7 @@
       "category": "public.app-category.education",
       "icon": "build/icon.png",
       "hardenedRuntime": false,
-      "artifactName": "Tolle-${version}-macos-${arch}.${ext}",
+      "artifactName": "Tolle-${version}-macOS-${arch}.${ext}",
       "minimumSystemVersion": "12.0"
     },
     "dmg": {
@@ -115,7 +115,7 @@
       "icon": "build/icon.png",
       "synopsis": "AI-assisted Bible study",
       "maintainer": "Shotgn16",
-      "artifactName": "Tolle-${version}-linux-${arch}.${ext}"
+      "artifactName": "Tolle-${version}-Linux-${arch}.${ext}"
     },
     "deb": {
       "depends": [

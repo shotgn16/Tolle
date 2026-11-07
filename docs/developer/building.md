@@ -1,39 +1,34 @@
 # Building and releasing
 
-GitHub builds everything for you. Setting a version tag produces every installer and app file and publishes them on the Releases page. Building locally is only needed while you're developing.
+GitHub builds everything for you, the same way as LifeHub: run one workflow with a version number and it builds every installer and app file and publishes them on the Releases page. Building locally is only needed while you're developing.
 
 ## Release a new version
 
-1. Set the version everywhere:
-   ```bash
-   python3 scripts/set-version.py 0.3.0
-   ```
-2. Add what changed to `tolle/CHANGELOG.md` under a `## 0.3.0` heading. The release notes are made from it.
-3. Commit, tag and push:
-   ```bash
-   git commit -am "Release 0.3.0"
-   git tag v0.3.0
-   git push && git push --tags
-   ```
+1. Add what changed to `tolle/CHANGELOG.md` under a `## 0.3.0` heading and push it. The release notes are made from it.
+2. On GitHub: **Actions → Build installers → Run workflow**, type the version (`0.3.0`) and press **Run workflow**.
 
-Pushing the tag starts **Build installers** (`.github/workflows/release.yaml`). About 20 minutes later the release appears with:
+The workflow sets the version in every app, builds everything, then creates the `v0.3.0` tag and the release itself. (Pushing a tag yourself – `git tag v0.3.0 && git push origin v0.3.0` – does the same.) To keep the version in the repository in step, run `python3 scripts/set-version.py 0.3.0` and commit.
+
+Leave the version empty to only build: the files are then attached to the run as *artifacts* (scroll to the bottom of the run's page) and nothing is published.
+
+About 25 minutes later the release appears with:
 
 | File | What it is |
 |---|---|
-| `Tolle-Setup-<v>-windows-x64.exe` | Windows installer |
-| `Tolle-<v>-macos-arm64.dmg`, `…-macos-x64.dmg` | Mac app for Apple silicon and Intel |
-| `Tolle-<v>-linux-x86_64.AppImage`, `…-linux-amd64.deb` (and `arm64`) | Linux app |
-| `tolle-server-<v>-<os>-<arch>.tar.gz` / `.zip` | the server alone, for machines with no screen |
+| `Tolle-<v>-Windows-x64-Setup.exe` | Windows installer |
+| `Tolle-<v>-macOS-AppleSilicon.dmg`, `…-macOS-Intel.dmg` | Mac app for Apple silicon and Intel |
+| `Tolle-<v>-Linux-x86_64.AppImage`, `…-Linux-amd64.deb` (and `arm64`) | Linux app |
+| `Tolle-Server-<v>-<platform>.tar.gz` / `.zip` | the server alone, for machines with no screen |
 | `install.sh`, `install.ps1` | one-line installers that download the right server |
-| `Tolle-<v>-android.apk` | Android app |
-| `Tolle-<v>-ios-unsigned.ipa` | iPhone and iPad app, for sideloading |
+| `Tolle-<v>-Android.apk` | Android app |
+| `Tolle-<v>-iPhone-iPad-unsigned.ipa` | iPhone and iPad app, for sideloading |
 | `SHA256SUMS.txt` | checksums |
 
 Pushing to `main` (without a tag) runs the tests and publishes the Docker and Home Assistant images (**Test & container images**, `build.yaml`). Home Assistant offers the update when `version` in `tolle/config.yaml` changes.
 
-You can also start **Build installers** by hand (**Actions → Build installers → Run workflow**) to test the builds without publishing a release. The files are then attached to the run as *artifacts*.
+If one platform fails to build, the release still publishes everything else. Fix it and run the workflow again with the same version to add the missing files.
 
-If one platform fails to build, the release still publishes everything else. Fix it and run the workflow again for the same tag to add the missing files.
+Before building, the workflow also tests the phone app running on its own (`tests/device/device-mode.mjs`) in a headless browser: every feature against fake study sites and a fake Ollama, with the prompts checked word-for-word against the server's. Its screenshots are attached to the run.
 
 ## Signing
 

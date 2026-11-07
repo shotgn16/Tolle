@@ -10,6 +10,27 @@ export const LS = {
   set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* private mode */ } },
 };
 
+// "device": the app runs on its own – everything is stored and answered on this phone/tablet
+// (core/local/engine.js). "server": the app talks to a Tolle server. Only the mobile apps offer
+// device mode; it can also be switched on in a browser for testing (localStorage tolle.mode=device).
+export const mode = {
+  get: () => LS.get('tolle.mode') || (isNative && serverUrl() ? 'server' : isNative ? null : 'server'),
+  set: (m) => LS.set('tolle.mode', m),
+  device: () => mode.get() === 'device',
+};
+
+let engine = null;
+async function deviceEngine() {
+  if (!engine) {
+    engine = (async () => {
+      const [eng, { default: features }] = await Promise.all([import('./local/engine.js'), import('../features/index.js')]);
+      await eng.start(features);
+      return eng;
+    })();
+  }
+  return engine;
+}
+
 export function serverUrl() { return (LS.get('tolle.server') || '').replace(/\/+$/, ''); }
 export function setServerUrl(u) { LS.set('tolle.server', u ? u.replace(/\/+$/, '') : null); }
 
@@ -38,12 +59,22 @@ export function deviceName() {
 }
 
 export const token = { get: () => LS.get('tolle.token'), set: (t) => LS.set('tolle.token', t) };
+/** True when the app can talk to its data: signed in to a server, or running on its own. */
+export const signedIn = () => mode.device() || !!token.get();
 
 export class ApiError extends Error {
   constructor(status, msg) { super(msg); this.status = status; }
 }
 
 export async function api(method, path, body, opts = {}) {
+  if (mode.device()) {
+    const eng = await deviceEngine();
+    try {
+      return await eng.handle(method, path, body);
+    } catch (e) {
+      throw new ApiError(e.status || 500, e.message || String(e));
+    }
+  }
   const headers = { 'X-Device-Id': deviceId(), 'X-Device-Name': deviceName() };
   const t = token.get();
   if (t) headers.Authorization = `Bearer ${t}`;
@@ -77,6 +108,7 @@ export const patch = (p, b) => api('PATCH', p, b);
 export const del = (p) => api('DELETE', p);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const pollEvery = () => (mode.device() ? 400 : 1500);
 
 // Start an AI job and wait for it. Handles on-device jobs transparently.
 export async function runJob(kind, params, onProgress = () => {}) {
@@ -100,21 +132,40 @@ export async function waitJob(id, onProgress = () => {}) {
         throw e;
       }
     }
-    await sleep(1500);
+    await sleep(pollEvery());
   }
+}
+
+/** Hand a file to the person: the share sheet in the phone apps (Save to Files, Drive, Mail…), a download elsewhere. */
+export async function saveOrShare(filename, blob, { open = false } = {}) {
+  const P = window.Capacitor?.Plugins;
+  if (isNative && P?.Filesystem && P?.Share) {
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    const safe = filename.replace(/[\\/:*?"<>|]+/g, '_') || 'file';
+    const { uri } = await P.Filesystem.writeFile({ path: safe, data: btoa(bin), directory: 'CACHE' });
+    await P.Share.share({ title: safe, files: [uri] });
+    return;
+  }
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = href; a.rel = 'noopener';
+  if (open && /^(image|application\/pdf|text)/.test(blob.type)) a.target = '_blank'; else a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 60000);
 }
 
 // Download an encrypted upload with the auth header (never put tokens in URLs).
 export async function openFile(fid, filename) {
-  const res = await fetch(url(`api/files/${fid}`), {
-    headers: { Authorization: `Bearer ${token.get()}`, 'X-Device-Id': deviceId() },
-  });
-  if (!res.ok) throw new ApiError(res.status, 'Could not open file.');
-  const blob = await res.blob();
-  const href = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = href; a.target = '_blank'; a.rel = 'noopener';
-  if (!/^(image|application\/pdf|text)/.test(blob.type)) a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(href), 60000);
+  let blob;
+  if (mode.device()) blob = await get(`api/files/${fid}`);
+  else {
+    const res = await fetch(url(`api/files/${fid}`), {
+      headers: { Authorization: `Bearer ${token.get()}`, 'X-Device-Id': deviceId() },
+    });
+    if (!res.ok) throw new ApiError(res.status, 'Could not open file.');
+    blob = await res.blob();
+  }
+  await saveOrShare(filename, blob, { open: true });
 }

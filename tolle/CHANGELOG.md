@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.3.0
+
+**The phone and tablet apps work on their own**
+- New first-launch choice: **On this device only** or **Connect to a Tolle server** (switch any time in
+  Settings → Account).
+- On its own, everything works on the phone or tablet with no computer or server: study notes and
+  uploads (PDF, Word, text, images), passage study, insights, the study builder, calling, the Bible
+  reader, the reading tracker and daily reminders.
+- Choose the AI in Settings: a model running on the device (works offline after a one-off download),
+  Ollama on your network, or ChatGPT, Gemini or Claude with your own API key.
+- Everything stored on the device is encrypted (AES-256-GCM), and password-protected backups let you
+  keep a copy or move to a new phone.
+- The daily reading reminder is a phone notification, so it arrives even when Tolle is closed.
+
+**Downloads named like LifeHub's**
+- `Tolle-<v>-Android.apk`, `Tolle-<v>-iPhone-iPad-unsigned.ipa`, `Tolle-<v>-macOS-AppleSilicon.dmg`,
+  `Tolle-<v>-macOS-Intel.dmg`, `Tolle-<v>-Windows-x64-Setup.exe`, `Tolle-<v>-Linux-…` and
+  `Tolle-Server-<v>-…` for headless servers.
+- Release by running **Actions → Build installers** with a version number; GitHub builds everything and
+  publishes the release.
+
+**Other changes**
+- The on-device AI library is included in the app instead of loading from the internet.
+- Opening uploaded files and saving backups uses the share sheet in the phone apps.
+
 ## 0.2.0
 
 **Install Tolle anywhere**

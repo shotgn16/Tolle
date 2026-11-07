@@ -4,7 +4,7 @@ Works on Windows 10 and 11 (64-bit), and on Windows Server with a desktop.
 
 ## 1. Download
 
-From the [latest release](https://github.com/shotgn16/Tolle/releases/latest), download **`Tolle-Setup-…-windows-x64.exe`**.
+From the [latest release](https://github.com/shotgn16/Tolle/releases/latest), download **`Tolle-…-Windows-x64-Setup.exe`**.
 
 ## 2. Run the installer
 

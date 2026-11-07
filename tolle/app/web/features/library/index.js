@@ -3,6 +3,7 @@ import * as views from './views.js';
 
 export default {
   id: 'library',
+  local: () => import('./local.js'),   // used when the app runs on its own (no server)
   nav: [{ route: 'notes', href: '#/notes', icon: 'notes', label: 'Study notes', group: 'Study', tab: 'Notes' }],
   routes: [
     [/^\/notes\/upload$/, 'notes', (view, m, q) => views.renderUpload(view, q)],

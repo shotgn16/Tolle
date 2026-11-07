@@ -6,6 +6,7 @@ import { start } from './background.js';
 
 export default {
   id: 'reading',
+  local: () => import('./local.js'),   // used when the app runs on its own (no server)
   nav: [
     { route: 'bible', href: '#/bible', icon: 'bible', label: 'Bible', group: null, tab: 'Bible', order: 1 },
     { route: 'tracker', href: '#/tracker', icon: 'tracker', label: 'Reading tracker', group: null, order: 2 },

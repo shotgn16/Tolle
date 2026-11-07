@@ -6,8 +6,8 @@ Works on macOS 12 (Monterey) or newer, on Apple silicon (M1 and later) and Intel
 
 From the [latest release](https://github.com/shotgn16/Tolle/releases/latest), download:
 
-- **`Tolle-…-macos-arm64.dmg`** for a Mac with Apple silicon (M1, M2, M3, M4…), or
-- **`Tolle-…-macos-x64.dmg`** for an older Intel Mac.
+- **`Tolle-…-macOS-AppleSilicon.dmg`** for a Mac with Apple silicon (M1, M2, M3, M4…), or
+- **`Tolle-…-macOS-Intel.dmg`** for an older Intel Mac.
 
 Not sure which you have? Apple menu → **About This Mac**. "Chip: Apple M…" means Apple silicon; "Processor: Intel" means Intel.
 

@@ -1,5 +1,5 @@
 // Settings → Reading: reminder, goal, time zone and time in the YouVersion app.
-import { get, isNative, post, serverUrl } from '../../core/api.js';
+import { get, isNative, mode, post, serverUrl } from '../../core/api.js';
 import { confirmDialog, errToast, field, h, saveSettings, state, switchEl } from '../../core/ui.js';
 
 export function readingSettingsTab(root) {
@@ -19,8 +19,18 @@ export function readingSettingsTab(root) {
       remEnabled, h('div', { style: { margin: '10px 0' } }, remTime),
       h('div', { class: 'grid two' }, field('Daily reading goal (minutes)', goal), field('Time zone', tz, 'Follows your device automatically unless you change it.')),
       externalApps(vals)),
-    bibleAppCard(vals),
+    mode.device() ? deviceBibleAppCard() : bibleAppCard(vals),
     h('button', { class: 'primary', onclick: () => saveSettings(vals) }, 'Save'));
+}
+
+// Running on its own the app has no web address for Home Assistant or Shortcuts to call.
+function deviceBibleAppCard() {
+  return h('div', { class: 'card' },
+    h('h3', {}, 'Time in the YouVersion app'),
+    h('p', {}, window.Capacitor?.Plugins?.BibleUsage
+      ? 'On Android, Tolle can measure time in YouVersion using the list above. After a session it asks which chapter you read.'
+      : 'Log what you read in another Bible app from the Reading tracker.'),
+    h('p', { class: 'hint' }, 'Logging YouVersion through Home Assistant or iPhone Shortcuts needs a Tolle server, because they send the time to its web address.'));
 }
 
 function bibleAppCard(vals) {

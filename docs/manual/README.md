@@ -26,12 +26,12 @@ Everything is on the [Releases page](https://github.com/shotgn16/Tolle/releases/
 
 | Device | File |
 |---|---|
-| Windows 10 or 11 | `Tolle-Setup-…-windows-x64.exe` |
-| Mac with Apple silicon (M1 or later) | `Tolle-…-macos-arm64.dmg` |
-| Intel Mac | `Tolle-…-macos-x64.dmg` |
-| Linux | `Tolle-…-linux-x86_64.AppImage`, or `Tolle-…-linux-amd64.deb` for Debian/Ubuntu (arm64 versions too) |
-| Android phone or tablet | `Tolle-…-android.apk` |
-| iPhone or iPad | `Tolle-…-ios-unsigned.ipa` (see [phones & tablets](phones-and-tablets.md) – there's an easier option too) |
+| Windows 10 or 11 | `Tolle-…-Windows-x64-Setup.exe` |
+| Mac with Apple silicon (M1 or later) | `Tolle-…-macOS-AppleSilicon.dmg` |
+| Intel Mac | `Tolle-…-macOS-Intel.dmg` |
+| Linux | `Tolle-…-Linux-x86_64.AppImage`, or `Tolle-…-Linux-amd64.deb` for Debian/Ubuntu (arm64 versions too) |
+| Android phone or tablet | `Tolle-…-Android.apk` |
+| iPhone or iPad | `Tolle-…-iPhone-iPad-unsigned.ipa` (see [phones & tablets](phones-and-tablets.md) – there's an easier option too) |
 
 Each desktop installer contains everything Tolle needs. You don't need to install Python or anything else first.
 

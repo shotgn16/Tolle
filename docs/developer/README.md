@@ -25,6 +25,22 @@ Tolle is one program, the **Tolle server**, plus several ways to reach it:
 
 The **same server program** runs everywhere: inside the desktop app, as a background service, in Docker and in Home Assistant. Only how it starts differs.
 
+### Running on a phone with no server
+
+The phone and tablet apps can also run **on their own** ("On this device only"). Then there is no server: a JavaScript copy of it, the **on-device engine** (`app/web/core/local/`), runs inside the app and answers the same `api/…` requests. The screens can't tell the difference – `api()` in `core/api.js` sends each request to the engine instead of over HTTP.
+
+```
+ web app screens ── api('GET', 'api/studies') ──┬── server mode:  HTTP → Tolle server
+                                                └── device mode:  core/local/engine.js
+                                                    ├─ store.js     AES-GCM encrypted collections (app files, or IndexedDB)
+                                                    ├─ ai.js        Ollama, ChatGPT, Gemini, Claude (native HTTP, no CORS)
+                                                    ├─ sources.js   study sites and Bible text
+                                                    ├─ extract.js   PDFs (pdf.js), Word, text
+                                                    └─ features/<id>/local.js   each feature's endpoints and AI jobs
+```
+
+To keep the two in step, the wording the AI sees comes from one place: `scripts/export-shared.py` writes the server's instructions, levels, defaults, book names and study sites into `app/web/core/local/shared.json` (run it after changing them; the tests fail if it's out of date). `tests/device/device-mode.mjs` checks that every prompt the engine writes is identical to the server's.
+
 ## The project
 
 ```
@@ -36,7 +52,9 @@ tolle/                      the Tolle server (also the Home Assistant app and Do
     cli.py                  the tolle-server command (serve, setup, service, ollama, docker, …)
   app/web/
     core/                   app shell: menu, sign-in, settings, shared UI pieces
-    features/               the screens for each feature (same ids as the server side)
+    features/               the screens for each feature (same ids as the server side), and local.js
+                            for running it on a phone with no server
+    core/local/             the on-device engine (Tolle without a server, for the phone apps)
     css/theme.css           colours and fonts
   config.yaml, Dockerfile   Home Assistant app
   Dockerfile.standalone     Docker image
@@ -48,6 +66,7 @@ mobile/                     Android and iOS/iPadOS apps (Capacitor)
 docs/manual/                the user manual
 docs/developer/             this guide
 scripts/set-version.py      sets the version number everywhere
+scripts/export-shared.py    copies the server's AI wording and defaults for the on-device engine
 tests/                      automated tests
 .github/workflows/          builds: container images on every push, installers on every release
 ```

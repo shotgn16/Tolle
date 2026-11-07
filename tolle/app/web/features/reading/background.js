@@ -1,12 +1,12 @@
 // Runs while the app is open: counts time in the app, keeps the reminder time zone in step with the
 // device, and (Android app with the optional plugin) reports time spent in other Bible apps.
-import { get, post, put, LS, token } from '../../core/api.js';
+import { post, put, LS, signedIn } from '../../core/api.js';
 import { state } from '../../core/ui.js';
 
 export function start() {
   let appSession = null;
   const beat = async () => {
-    if (document.visibilityState !== 'visible' || !token.get()) return;
+    if (document.visibilityState !== 'visible' || !signedIn()) return;
     try { appSession = (await post('api/tracker/app', { id: appSession })).id; } catch { /* offline */ }
   };
   const onVisible = () => { if (document.visibilityState === 'visible') { beat(); syncExternalUsage(); } };

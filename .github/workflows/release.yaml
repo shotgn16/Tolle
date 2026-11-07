@@ -1,7 +1,16 @@
-# Builds every Tolle installer and, for a version tag, publishes them as a GitHub Release.
+# Builds every Tolle download and publishes them as a GitHub Release (the same way as LifeHub).
 #
-#   git tag v0.2.0 && git push origin v0.2.0     → build everything + publish the release
-#   Actions → "Build installers" → Run workflow   → build everything, download from the run page
+#   Actions → "Build installers" → Run workflow, version 0.3.0  → builds everything, then creates the
+#                                                                  v0.3.0 tag and release itself
+#   Actions → "Build installers" → Run workflow, version empty  → builds everything; download the files
+#                                                                  from the run page (no release)
+#   git tag v0.3.0 && git push origin v0.3.0                     → same as running it with 0.3.0
+#
+# Files (unsigned unless the secrets below are set):
+#   Tolle-<v>-Android.apk, Tolle-<v>-iPhone-iPad-unsigned.ipa,
+#   Tolle-<v>-macOS-AppleSilicon.dmg, Tolle-<v>-macOS-Intel.dmg, Tolle-<v>-Windows-x64-Setup.exe,
+#   Tolle-<v>-Linux-x86_64.AppImage / -arm64.AppImage, Tolle-<v>-Linux-amd64.deb / -arm64.deb,
+#   Tolle-Server-<v>-<platform>.tar.gz/.zip (headless), install.sh, install.ps1, SHA256SUMS.txt
 #
 # Optional repository secrets (Settings → Secrets and variables → Actions):
 #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
@@ -17,6 +26,11 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 0.3.0 (leave empty to only build)"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -33,12 +47,41 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
       - run: pip install -r tolle/app/requirements.txt pytest
       - run: pytest -q tests
+      - name: Test the app running on its own (phone mode)
+        run: |
+          python3 scripts/export-shared.py --check
+          python3 tests/device/expected.py > "$RUNNER_TEMP/expected.json"
+          cd tests/device && npm install --no-save --no-package-lock playwright@1.63.0 && npx playwright install --with-deps chromium
+          node device-mode.mjs "$RUNNER_TEMP/expected.json" "$RUNNER_TEMP/shots"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: screenshots
+          path: ${{ runner.temp }}/shots
+          if-no-files-found: ignore
       - id: v
-        run: echo "version=$(cat tolle/app/VERSION)" >> "$GITHUB_OUTPUT"
+        name: Version
+        run: |
+          v="${{ inputs.version }}"
+          if [ -z "$v" ] && [ "${GITHUB_REF_TYPE}" = tag ]; then v="${GITHUB_REF_NAME}"; fi
+          v="${v#v}"
+          if [ -n "$v" ]; then
+            echo "$v" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-+].+)?$' || { echo "::error::Use a version like 0.3.0"; exit 1; }
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            v=$(cat tolle/app/VERSION)
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Building Tolle $v"
     outputs:
       version: ${{ steps.v.outputs.version }}
+      release: ${{ steps.v.outputs.release }}
 
   # ------------------------------------------------------------------ the server program
   server:
@@ -47,14 +90,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest,    id: linux-x64,     archive: tar.gz }
-          - { os: ubuntu-24.04-arm, id: linux-arm64,   archive: tar.gz }
-          - { os: macos-latest,     id: macos-arm64,   archive: tar.gz }
-          - { os: macos-15-intel,   id: macos-x64,     archive: tar.gz }
-          - { os: windows-latest,   id: windows-x64,   archive: zip }
+          - { os: ubuntu-latest,    id: linux-x64,   label: Linux-x64,          archive: tar.gz }
+          - { os: ubuntu-24.04-arm, id: linux-arm64, label: Linux-arm64,        archive: tar.gz }
+          - { os: macos-latest,     id: macos-arm64, label: macOS-AppleSilicon, archive: tar.gz }
+          - { os: macos-15-intel,   id: macos-x64,   label: macOS-Intel,        archive: tar.gz }
+          - { os: windows-latest,   id: windows-x64, label: Windows-x64,        archive: zip }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
+      - name: Set the version
+        shell: bash
+        run: |
+          PY=$(command -v python3 || command -v python)
+          "$PY" scripts/set-version.py "${{ needs.test.outputs.version }}"
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
@@ -77,9 +125,9 @@ jobs:
           mkdir -p out
           cp packaging/server/README.txt build/server/tolle-server/ 2>/dev/null || true
           if [ "${{ matrix.archive }}" = zip ]; then
-            (cd build/server && 7z a -tzip ../../out/tolle-server-$V-${{ matrix.id }}.zip tolle-server > /dev/null)
+            (cd build/server && 7z a -tzip ../../out/Tolle-Server-$V-${{ matrix.label }}.zip tolle-server > /dev/null)
           else
-            tar -C build/server -czf out/tolle-server-$V-${{ matrix.id }}.tar.gz tolle-server
+            tar -C build/server -czf out/Tolle-Server-$V-${{ matrix.label }}.tar.gz tolle-server
           fi
       - uses: actions/upload-artifact@v7
         with:
@@ -96,12 +144,17 @@ jobs:
         include:
           - { os: ubuntu-latest,    id: linux-x64,   target: --linux --x64 }
           - { os: ubuntu-24.04-arm, id: linux-arm64, target: --linux --arm64 }
-          - { os: macos-latest,     id: macos-arm64, target: --mac --arm64 }
-          - { os: macos-15-intel,   id: macos-x64,   target: --mac --x64 }
+          - { os: macos-latest,     id: macos-arm64, target: --mac --arm64, name: "'-c.mac.artifactName=Tolle-${version}-macOS-AppleSilicon.${ext}'" }
+          - { os: macos-15-intel,   id: macos-x64,   target: --mac --x64,   name: "'-c.mac.artifactName=Tolle-${version}-macOS-Intel.${ext}'" }
           - { os: windows-latest,   id: windows-x64, target: --win --x64 }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
+      - name: Set the version
+        shell: bash
+        run: |
+          PY=$(command -v python3 || command -v python)
+          "$PY" scripts/set-version.py "${{ needs.test.outputs.version }}"
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -144,7 +197,7 @@ jobs:
           done
           if [ -z "${CSC_LINK:-}" ]; then export CSC_IDENTITY_AUTO_DISCOVERY=false; fi
           npm ci
-          npx electron-builder ${{ matrix.target }} --publish never
+          npx electron-builder ${{ matrix.target }} ${{ matrix.name }} --publish never
       - uses: actions/upload-artifact@v7
         with:
           name: desktop-${{ matrix.id }}
@@ -162,6 +215,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Set the version
+        shell: bash
+        run: |
+          PY=$(command -v python3 || command -v python)
+          "$PY" scripts/set-version.py "${{ needs.test.outputs.version }}"
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -196,7 +254,7 @@ jobs:
           ./gradlew assembleRelease --no-daemon
           V=$(cat ../../tolle/app/VERSION)
           mkdir -p ../../out
-          cp app/build/outputs/apk/release/app-release.apk ../../out/Tolle-$V-android.apk
+          cp app/build/outputs/apk/release/app-release.apk ../../out/Tolle-$V-Android.apk
       - name: Check the APK
         run: |
           # Use the newest stable build-tools (skip previews / release candidates).
@@ -223,6 +281,11 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Set the version
+        shell: bash
+        run: |
+          PY=$(command -v python3 || command -v python)
+          "$PY" scripts/set-version.py "${{ needs.test.outputs.version }}"
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -238,7 +301,7 @@ jobs:
           V=$(cat ../tolle/app/VERSION)
           mkdir -p "$RUNNER_TEMP/ipa/Payload" ../out
           cp -R "$RUNNER_TEMP/dd/Build/Products/Release-iphoneos/App.app" "$RUNNER_TEMP/ipa/Payload/"
-          (cd "$RUNNER_TEMP/ipa" && zip -qr "$GITHUB_WORKSPACE/out/Tolle-$V-ios-unsigned.ipa" Payload)
+          (cd "$RUNNER_TEMP/ipa" && zip -qr "$GITHUB_WORKSPACE/out/Tolle-$V-iPhone-iPad-unsigned.ipa" Payload)
       - name: Check the iPhone/iPad app
         run: |
           APPDIR="$RUNNER_TEMP/ipa/Payload/App.app"
@@ -256,7 +319,7 @@ jobs:
   # ------------------------------------------------------------------ publish
   release:
     # Publishes whatever built successfully, so one failing platform doesn't hold up the others.
-    if: ${{ startsWith(github.ref, 'refs/tags/v') && !cancelled() && needs.test.result == 'success' }}
+    if: ${{ !cancelled() && needs.test.result == 'success' && needs.test.outputs.release == 'true' }}
     needs: [test, server, desktop, android, ios]
     runs-on: ubuntu-latest
     steps:
@@ -264,16 +327,24 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           path: artifacts
+          pattern: "{server-*,desktop-*,android,ios}"
           merge-multiple: true
-      - name: Release notes and checksums
+      - name: Collect files, checksums and release notes
         run: |
           V=${{ needs.test.outputs.version }}
           cp packaging/install/install.sh packaging/install/install.ps1 artifacts/
+          # The two Mac builds each write a latest-mac.yml; unsigned Mac apps can't update themselves anyway.
+          rm -f artifacts/latest-mac.yml
           (cd artifacts && sha256sum * > SHA256SUMS.txt)
+          ls -la artifacts
           python3 packaging/release-notes.py "$V" > notes.md
-      - uses: softprops/action-gh-release@v3
-        with:
-          name: Tolle ${{ needs.test.outputs.version }}
-          body_path: notes.md
-          files: artifacts/*
-          fail_on_unmatched_files: false
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v${{ needs.test.outputs.version }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" artifacts/* --clobber
+          else
+            gh release create "$tag" artifacts/* --target "$GITHUB_SHA" --title "Tolle $tag" --notes-file notes.md
+          fi

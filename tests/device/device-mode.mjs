@@ -1,0 +1,273 @@
+// End-to-end test of the app running on its own ("this device only"), in headless Chromium.
+//
+//   python3 tests/device/expected.py > /tmp/expected.json
+//   node tests/device/device-mode.mjs /tmp/expected.json [screenshot-dir]
+//
+// The web app is served from tolle/app/web. Study sites, bible-api.com and Ollama are answered by
+// fakes inside the test, so it needs no network. It checks that the on-device engine writes the same
+// prompts as the server, runs every AI feature, keeps data encrypted, survives a reload, and that
+// backups restore.
+import { createRequire } from 'node:module';
+import { readFileSync, existsSync, mkdirSync } from 'node:fs';
+import { extname, join, resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const require = createRequire(import.meta.url);
+const { chromium } = require('playwright');
+
+const here = dirname(fileURLToPath(import.meta.url));
+const WEB = resolve(here, '../../tolle/app/web');
+const EXPECTED = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+const SHOTS = process.argv[3];
+if (SHOTS) mkdirSync(SHOTS, { recursive: true });
+const ORIGIN = 'https://tolle.test';
+const OLLAMA = 'https://ollama.test:11434';
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
+  '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json' };
+
+let failures = 0;
+const ok = (cond, msg) => { console.log(`${cond ? '  ✓' : '  ✗'} ${msg}`); if (!cond) failures += 1; };
+const chats = [];
+const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
+
+async function setup(context) {
+  await context.route('**/*', async (route) => {
+    const req = route.request();
+    const u = new URL(req.url());
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    if (u.origin === ORIGIN) {
+      const p = join(WEB, decodeURIComponent(u.pathname === '/' ? '/index.html' : u.pathname));
+      if (!p.startsWith(WEB) || !existsSync(p)) return route.fulfill({ status: 404, body: 'not found' });
+      return route.fulfill({ status: 200, body: readFileSync(p), headers: { 'content-type': TYPES[extname(p)] || 'application/octet-stream' } });
+    }
+    if (u.origin === OLLAMA) {
+      if (u.pathname === '/api/tags') return route.fulfill({ status: 200, headers: cors, json: { models: [{ name: 'qwen3:8b' }, { name: 'gemma3:4b' }] } });
+      if (u.pathname === '/api/show') return route.fulfill({ status: 200, headers: cors, json: { capabilities: ['completion', 'thinking'] } });
+      if (u.pathname === '/api/chat') {
+        const body = JSON.parse(req.postData());
+        chats.push(body);
+        const last = body.messages[body.messages.length - 1].content;
+        const content = `## Overview\nFake answer number ${chats.length}. The prompt began: ${String(last).slice(0, 60).replace(/\n/g, ' ')}`;
+        return route.fulfill({ status: 200, headers: cors, json: { message: { role: 'assistant', content, thinking: body.think ? 'Considering…' : '' }, done: true } });
+      }
+    }
+    if (u.hostname === 'bible-api.com') {
+      return route.fulfill({ status: 200, headers: cors, json: { reference: 'x', verses: [1, 2, 3].map((v) => ({ book_name: 'John', chapter: 3, verse: v, text: `Verse ${v} text of the fake Bible, long enough to count.` })) } });
+    }
+    if (/studylight|biblestudytools|bibleproject|blueletterbible|biblehub|gotquestions/.test(u.hostname)) {
+      return route.fulfill({ status: 200, headers: { ...cors, 'content-type': 'text/html' },
+        body: `<html><body><nav>menu</nav><article><h1>Commentary on ${u.pathname}</h1><p>A long and careful commentary paragraph from ${u.hostname} about this passage and its meaning.</p></article></body></html>` });
+    }
+    return route.fulfill({ status: 404, headers: cors, body: '' });
+  });
+  await context.addInitScript(() => { try { localStorage.setItem('tolle.mode', 'device'); } catch { /* */ } });
+}
+
+const browser = await chromium.launch();
+const context = await browser.newContext({ viewport: { width: 1280, height: 860 } });
+await setup(context);
+const page = await context.newPage();
+const errors = [];
+page.on('pageerror', (e) => errors.push(e.message));
+page.on('console', (m) => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
+
+console.log('Start-up');
+await page.goto(`${ORIGIN}/index.html#/settings?tab=ai&welcome=1`);
+await page.waitForSelector('.welcome-ai', { timeout: 20000 });
+ok(true, 'settings opens with the “Choose your AI” welcome');
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/01-choose-ai.png` });
+
+// Helpers that run inside the page, through the same api() the screens use.
+const call = (fn, arg) => page.evaluate(async ([src, a]) => {
+  const api = await import('/core/api.js');
+  // eslint-disable-next-line no-new-func
+  return new Function('api', 'a', `return (async () => { ${src} })();`)(api, a);
+}, [fn, arg]);
+
+console.log('Prompts match the server');
+const parity = await page.evaluate(async (E) => {
+  const [{ systemBase }, research, insights, builder, library, calling, bible] = await Promise.all([
+    import('/core/local/prompts.js'), import('/features/research/local.js'), import('/features/insights/local.js'),
+    import('/features/builder/local.js'), import('/features/library/local.js'), import('/features/calling/local.js'), import('/core/local/bible.js')]);
+  await (await import('/core/api.js')).get('api/health');   // starts the engine (loads settings)
+  const res = {
+    system: systemBase('Baptist') === E.system,
+    passage: research.passageStudy('John 3:16, Romans 8', 'love', 'deep', 'SRC', 'sermon', 'short') === E.passage,
+    passage_plain: research.passageStudy('Psalm 23', '', 'intro', 'SRC') === E.passage_plain,
+    insight: insights.insight('life', 'work and rest', 'study', 'SRC') === E.insight,
+    builder: builder.builder(E.builder_params, 'SRC') === E.builder,
+    notes: library.notesAnalysis('My notes', 'Some notes', ['John 1'], 'SRC', 'preach') === E.notes,
+    calling_system: calling.callingSystem('Anglican') === E.calling_system,
+    calling_opening: calling.callingOpening('I feel drawn to teaching') === E.calling_opening,
+    template: JSON.stringify(bible.templateVars(bible.parseRefs('1 John 4:7-12')[0], 'kjv')) === JSON.stringify(E.template),
+  };
+  const refs = {};
+  for (const [t, want] of Object.entries(E.refs)) refs[t] = JSON.stringify(bible.parseRefs(t)) === JSON.stringify(want) ? true : JSON.stringify(bible.parseRefs(t));
+  return { res, refs };
+}, EXPECTED);
+for (const [k, v] of Object.entries(parity.res)) ok(v, `${k} prompt is identical`);
+for (const [k, v] of Object.entries(parity.refs)) ok(v === true, `parse “${k}”${v === true ? '' : ` → ${v}`}`);
+
+console.log('Settings and models');
+await call(`await api.put('api/settings', { 'ai.provider': 'ollama', 'ollama.url': '${OLLAMA}', 'ai.model': 'qwen3:8b', 'openai.key': 'sk-secret-123' }); return true;`);
+const st = await call(`return api.get('api/settings');`);
+ok(st.values['ai.provider'] === 'ollama' && st.values['ollama.url'] === OLLAMA, 'settings saved');
+ok(st.values['openai.key'] !== 'sk-secret-123', 'API keys are masked when read back');
+const models = await call(`return api.get('api/ai/models?provider=ollama');`);
+ok(models.models.some((m) => m.id === 'qwen3:8b' && m.thinking), 'lists Ollama models with thinking support');
+
+console.log('AI features');
+const study = await call(`const j = await api.runJob('passage_study', { passages: 'John 3:16-18', focus: 'love', level: 'study', thinking: true }); return j.result;`);
+ok(study && study.study_id && study.entry_id, 'passage study finished and saved');
+const lastChat = chats[chats.length - 1];
+ok(lastChat.think === true && lastChat.messages[0].role === 'system', 'thinking request sent with system message');
+ok(/StudyLight/.test(lastChat.messages[1].content) && /Verse 1 text of the fake Bible/.test(lastChat.messages[1].content), 'prompt includes the study sites and Bible text');
+const s1 = await call(`return api.get('api/studies/' + a);`, study.study_id);
+ok(s1.entries[0].author === 'ai' && /Fake answer/.test(s1.entries[0].content), 'AI note stored on the study');
+ok(s1.entries[0].meta.sources.some((x) => x.ok), 'sources recorded on the note');
+
+const ins = await call(`return (await api.runJob('insight', { mode: 'passage', query: 'Psalm 23', level: 'intro' })).result;`);
+ok(ins.study_id > study.study_id, 'insight finished');
+const plan = await call(`return (await api.runJob('builder', { audience: 'youth', passages: 'Luke 15', theme: 'grace', sessions: 1, level: 'study' })).result;`);
+ok(!!plan.entry_id, 'study plan finished');
+const ins2 = await call(`return (await api.runJob('insight', { mode: 'life', query: 'work and rest', level: 'study' })).result;`);
+ok(!!ins2.entry_id, 'insight on an area of life (AI suggests passages first)');
+
+const notes = await call(`
+  const s = await api.post('api/studies', { title: 'Sermon notes', kind: 'notes', content: 'Thoughts on John 1:1-5 and Genesis 1.' });
+  const fd = new FormData();
+  fd.append('files', new File(['More notes about Romans 12:1-2 and living sacrifice.'], 'extra.txt', { type: 'text/plain' }));
+  fd.append('study_id', String(s.id));
+  await api.api('POST', 'api/notes/upload', fd);
+  const j = await api.runJob('notes_analyze', { study_id: s.id, level: 'study' });
+  return { id: s.id, result: j.result, study: await api.get('api/studies/' + s.id) };`);
+ok(notes.study.files.length === 1 && /Romans 12/.test(notes.study.files[0].preview), 'uploaded file read on the device');
+ok(notes.study.entries.some((e) => e.author === 'ai' && e.type === 'analysis'), 'notes analysed and compared with the sources');
+ok(/Romans 12/.test(chats[chats.length - 1].messages[1].content) && /John 1/.test(chats[chats.length - 1].messages[1].content), 'analysis prompt has the notes and the uploaded file');
+const blob = await call(`const b = await api.get('api/files/' + a); return await b.text();`, notes.study.files[0].id);
+ok(/living sacrifice/.test(blob), 'uploaded file opens again (decrypted)');
+
+const calling = await call(`
+  const c = await api.post('api/calling', { focus: 'teaching' });
+  await api.waitJob(c.job);
+  const m = await api.post('api/calling/' + c.id + '/message', { content: 'I love explaining the Bible to children.' });
+  await api.waitJob(m.job);
+  const s = await api.post('api/calling/' + c.id + '/summary', {});
+  await api.waitJob(s.job);
+  return api.get('api/calling/' + c.id);`);
+ok(calling.messages.map((m) => m.role).join(',') === 'ai,user,ai,summary', 'calling: opening, reply and summary');
+ok(/\(Session start\)|Begin the session/.test(JSON.stringify(chats.slice(-3)[0].messages)), 'calling starts with the opening prompt');
+
+console.log('Reading tracker');
+const tr = await call(`
+  await api.post('api/tracker/reading/manual', { book: 'jn', chapter: 3, minutes: 12, note: 'evening' });
+  const s = await api.post('api/tracker/reading/start', { book: 'Romans', chapter: 8 });
+  await api.post('api/tracker/app', {});
+  await api.post('api/tracker/external', { app: 'YouVersion', minutes: 6 });
+  const pending = await api.get('api/notifications/pending');
+  const stats = await api.get('api/tracker/stats?days=7');
+  const ch = await api.get('api/bible/chapter?book=John&chapter=3');
+  return { stats, pending, ch };`);
+const today = tr.stats.days[tr.stats.today];
+ok(today.chapters.some((c) => c.label === 'John 3' && c.minutes === 12), 'manual reading logged (book abbreviation understood)');
+ok(tr.stats.streak === 1, 'streak counts today');
+ok(tr.pending.length === 1 && /YouVersion/.test(tr.pending[0].body), '“What did you read?” prompt raised on the device');
+ok(tr.ch.ok && tr.ch.verses.length === 3, 'Bible chapter loads for the reader');
+
+const dash = await call(`return api.get('api/dashboard');`);
+ok(dash.recent.length >= 4 && dash.tracker && dash.ai.model === 'qwen3:8b', 'home screen summary');
+
+console.log('Feature switches');
+const off = await call(`await api.put('api/admin/features', { disabled: ['calling'] }); try { await api.get('api/calling'); return 'reachable'; } catch (e) { return e.status; } finally { await api.put('api/admin/features', { disabled: [] }); }`);
+ok(off === 404, 'a switched-off feature is unavailable');
+
+console.log('Encryption and persistence');
+await page.evaluate(async () => (await import('/core/local/engine.js')).flush());
+const raw = await page.evaluate(() => new Promise((res, rej) => {
+  const r = indexedDB.open('tolle-device');
+  r.onerror = () => rej(r.error);
+  r.onsuccess = () => {
+    const db = r.result;
+    const names = [...db.objectStoreNames];
+    const tx = db.transaction(names, 'readonly');
+    const out = [];
+    for (const n of names) {
+      const store = tx.objectStore(n);
+      const c = store.openCursor();
+      c.onsuccess = () => {
+        const cur = c.result;
+        if (!cur) return;
+        const v = cur.value;
+        const bytes = v instanceof Uint8Array ? v : v instanceof ArrayBuffer ? new Uint8Array(v) : v?.data ? new Uint8Array(v.data) : null;
+        out.push([String(cur.key), bytes ? new TextDecoder('latin1').decode(bytes) : JSON.stringify(v)]);
+        cur.continue();
+      };
+    }
+    tx.oncomplete = () => res(out);
+  };
+}));
+const everything = raw.map(([, v]) => v).join('\n');
+ok(raw.length >= 5, `data stored in IndexedDB (${raw.length} records)`);
+ok(!/Fake answer|living sacrifice|explaining the Bible|sk-secret-123|Sermon notes/.test(everything), 'nothing readable at rest – notes, files, reflections and keys are encrypted');
+
+await page.reload();
+await page.waitForSelector('#nav a', { timeout: 20000 });
+const after = await call(`return (await api.get('api/studies')).map((s) => s.title);`);
+ok(after.includes('Sermon notes') && after.length === 5, 'studies are still there after restarting the app');
+
+console.log('Backup and restore');
+const back = await call(`
+  try { await api.post('api/device/export', { password: 'short' }); return 'no error'; } catch (e) { if (e.status !== 400) return 'bad status'; }
+  const { data } = await api.post('api/device/export', { password: 'correct horse battery' });
+  const id = (await api.get('api/studies')).find((s) => s.title === 'Sermon notes').id;
+  await api.del('api/studies/' + id);
+  const before = (await api.get('api/studies')).length;
+  let wrong;
+  try { await api.post('api/device/import', { data, password: 'wrong password!' }); wrong = 'accepted'; } catch (e) { wrong = e.message; }
+  await api.post('api/device/import', { data, password: 'correct horse battery' });
+  const restored = await api.get('api/studies');
+  const s = await api.get('api/studies/' + restored.find((x) => x.title === 'Sermon notes').id);
+  const file = await (await api.get('api/files/' + s.files[0].id)).text();
+  return { before, after: restored.length, wrong, plain: /Sermon notes|Fake answer/.test(data), file };`);
+ok(back.before === 4 && back.after === 5, 'backup restores a deleted study');
+ok(/Wrong password/.test(back.wrong), 'wrong backup password is refused');
+ok(!back.plain, 'backup file is encrypted');
+ok(/living sacrifice/.test(back.file), 'uploaded files come back with the backup');
+
+console.log('Screens');
+for (const [hash, name, sel] of [['#/', '02-home', '.page-head'], [`#/study/${study.study_id}`, '03-study', '.note.ai'],
+  ['#/tracker', '04-tracker', '.page-head'], ['#/settings?tab=account', '05-account', '.card'], ['#/settings?tab=about', '06-about', '.card']]) {
+  await page.goto(`${ORIGIN}/index.html${hash}`);
+  try { await page.waitForSelector(sel, { timeout: 15000 }); ok(true, `${hash} renders`); } catch { ok(false, `${hash} renders`); }
+  await page.waitForTimeout(400);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png` });
+}
+const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+await setup(phone);
+const pp = await phone.newPage();
+await pp.goto(`${ORIGIN}/index.html#/`);
+await pp.waitForSelector('.page-head', { timeout: 20000 });
+if (SHOTS) await pp.screenshot({ path: `${SHOTS}/07-phone-home.png` });
+
+console.log('First launch in the phone app');
+const fresh = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+await setup(fresh);
+await fresh.addInitScript(() => {
+  try { localStorage.removeItem('tolle.mode'); } catch { /* */ }
+  window.Capacitor = { isNativePlatform: () => true, Plugins: {} };   // looks like the app, with no native plugins
+});
+const fp = await fresh.newPage();
+fp.on('pageerror', (e) => errors.push(e.message));
+await fp.goto(`${ORIGIN}/index.html`);
+await fp.waitForSelector('.choices', { timeout: 20000 });
+ok(true, 'asks how to use Tolle: on this device, or with a server');
+if (SHOTS) await fp.screenshot({ path: `${SHOTS}/08-phone-first-launch.png` });
+await fp.click('text=On this device only');
+await fp.waitForSelector('.welcome-ai', { timeout: 20000 });
+ok(await fp.evaluate(() => localStorage.getItem('tolle.mode')) === 'device', 'choosing “On this device only” opens AI setup');
+if (SHOTS) await fp.screenshot({ path: `${SHOTS}/09-phone-choose-ai.png` });
+
+ok(errors.length === 0, `no script errors${errors.length ? `: ${errors.slice(0, 5).join(' | ')}` : ''}`);
+await browser.close();
+console.log(failures ? `\n${failures} check(s) failed` : '\nAll device-mode checks passed');
+process.exit(failures ? 1 : 0);

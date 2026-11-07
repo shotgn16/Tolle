@@ -14,7 +14,7 @@ export async function render(view) {
   const [top, ...rest] = widgets.map((w) => w.render(d)).filter(Boolean);
 
   mount(view,
-    h('div', { class: 'page-head' }, h('div', {}, h('h1', {}, `${hello}, ${state.me.username}`),
+    h('div', { class: 'page-head' }, h('div', {}, h('h1', {}, state.me.username ? `${hello}, ${state.me.username}` : hello),
       top?.subtitle ? h('p', {}, top.subtitle) : null)),
     !d.ai?.model ? h('a', { class: 'panel setup-nudge', href: '#/settings' },
       h('span', { class: 'kind-ic' }, icon('insights', 18)),

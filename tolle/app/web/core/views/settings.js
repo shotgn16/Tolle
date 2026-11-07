@@ -1,5 +1,5 @@
 import { icon } from '../icons.js';
-import { del, get, isNative, patch, post, put, serverUrl, setServerUrl, token } from '../api.js';
+import { del, get, isNative, mode, patch, post, put, saveOrShare, serverUrl, setServerUrl, token } from '../api.js';
 import { ensureModel, webgpuAvailable } from '../ondevice.js';
 import {
   confirmDialog, errToast, fetchModels, field, fmtDate, h, loadSettings, modal, saveSettings, segmented, state, switchEl, toast, mount,
@@ -30,8 +30,18 @@ export async function render(view, query) {
     body.replaceChildren();
     (all.find(([k]) => k === tab) || all[0])[2](body);
   };
-  mount(view, h('div', { class: 'page-head' }, h('div', {}, h('h1', {}, 'Settings'),
-    h('p', {}, 'Everything is configured here and stored encrypted on your server. The only setting outside the app is the network port.'))), tabs, body);
+  const intro = mode.device()
+    ? 'Tolle is running on this device on its own. Everything is stored here, encrypted.'
+    : 'Everything is configured here and stored encrypted on your server. The only setting outside the app is the network port.';
+  const welcome = query.welcome && mode.device() ? h('div', { class: 'card welcome-ai' },
+    h('h3', {}, 'Choose your AI'),
+    h('p', {}, 'Tolle needs an AI model to write studies. Pick one below and press “Save AI settings”:'),
+    h('ul', {},
+      h('li', {}, h('strong', {}, 'On-device'), ' – runs on this phone or tablet, works offline after a one-off download (about 1–2 GB). Needs a recent device.'),
+      h('li', {}, h('strong', {}, 'Ollama'), ' – a free AI on your own computer. Enter its address, e.g. http://192.168.1.20:11434.'),
+      h('li', {}, h('strong', {}, 'ChatGPT, Gemini or Claude'), ' – paste an API key from the provider. The key is stored encrypted on this device.')),
+    h('p', { class: 'hint' }, 'Everything else is ready to use. You can change this at any time.')) : null;
+  mount(view, h('div', { class: 'page-head' }, h('div', {}, h('h1', {}, 'Settings'), h('p', {}, intro))), welcome, tabs, body);
   drawTabs(); drawBody();
 }
 
@@ -43,7 +53,7 @@ async function featuresTab(root) {
   const off = new Set(list.filter((f) => f.enabled === false).map((f) => f.id));
   root.append(h('div', { class: 'card' },
     h('h3', {}, 'Features'),
-    h('p', { class: 'muted' }, 'Choose which parts of Tolle everyone on this server sees. Switching a feature off hides it and pauses its reminders; nothing is deleted, and switching it back on brings everything back.'),
+    h('p', { class: 'muted' }, `Choose which parts of Tolle ${mode.device() ? 'this app shows' : 'everyone on this server sees'}. Switching a feature off hides it and pauses its reminders; nothing is deleted, and switching it back on brings everything back.`),
     h('div', { class: 'list', style: { marginTop: '12px' } }, list.map((f) => h('div', { class: 'list-item' },
       h('div', { class: 'grow' }, h('div', { class: 't' }, f.name), f.description ? h('small', {}, f.description) : null),
       f.essential ? h('span', { class: 'chip' }, 'Always on')
@@ -65,7 +75,7 @@ async function instructionsTab(root) {
   const groups = [...new Set(items.map((i) => i.group))];
   root.append(h('div', { class: 'card' },
     h('h3', {}, 'AI instructions'),
-    h('p', { class: 'muted' }, 'This is the wording Tolle gives the AI. Change it to suit your church or group – for example the tone, the tradition, or how long each depth should be. Your changes apply to everyone on this server and are kept when Tolle is updated. “Reset” brings back the original.')));
+    h('p', { class: 'muted' }, `This is the wording Tolle gives the AI. Change it to suit your church or group – for example the tone, the tradition, or how long each depth should be. ${mode.device() ? 'Your changes are' : 'Your changes apply to everyone on this server and are'} kept when Tolle is updated. “Reset” brings back the original.`)));
   for (const g of groups) {
     root.append(h('h2', { style: { margin: '26px 0 10px' } }, g));
     for (const it of items.filter((i) => i.group === g)) {
@@ -249,7 +259,25 @@ async function phoneCard() {
   return card;
 }
 
+function deviceNotifyTab(root) {
+  root.append(h('div', { class: 'card' },
+    h('h3', {}, 'Notifications'),
+    h('p', {}, 'Tolle shows reading reminders and “What did you read?” prompts as notifications on this device. Turn the daily reminder on in the Reading tab.'),
+    h('button', {
+      class: 'small',
+      onclick: async () => {
+        const LN = window.Capacitor?.Plugins?.LocalNotifications;
+        try {
+          if (LN) { const r = await LN.requestPermissions(); toast(r.display === 'granted' ? 'Notifications allowed' : 'Notifications are off – allow them in the phone’s settings'); return; }
+          if ('Notification' in window) toast(`Notifications: ${await Notification.requestPermission()}`);
+        } catch (e) { errToast(e); }
+      },
+    }, 'Allow notifications'),
+    h('p', { class: 'hint', style: { marginTop: '12px' } }, 'Choosing which devices get notifications needs a Tolle server, because a single device only notifies itself.')));
+}
+
 async function notifyTab(root) {
+  if (mode.device()) return deviceNotifyTab(root);
   const pc = await phoneCard();
   if (pc) root.append(pc);
   const s = state.settings;
@@ -346,7 +374,51 @@ function studyTab(root) {
 }
 
 // ---------------------------------------------------------------- account
+const download = (name, text, type = 'application/json') => saveOrShare(name, new Blob([text], { type }));
+
+async function deviceAccountTab(root) {
+  const s = state.settings;
+  const name = h('input', { value: s['device.name'] || '', placeholder: 'Your name (optional)' });
+  const pass = h('input', { type: 'password', autocomplete: 'new-password', placeholder: 'Password for the backup file' });
+  const fileIn = h('input', { type: 'file', accept: '.tolle,.json,application/json', hidden: true });
+  fileIn.addEventListener('change', async () => {
+    const f = fileIn.files[0];
+    if (!f) return;
+    try {
+      if (!(await confirmDialog('Restore this backup? It replaces everything on this device.', 'Restore'))) return;
+      await post('api/device/import', { data: await f.text(), password: pass.value });
+      toast('Backup restored. Reloading…');
+      setTimeout(() => location.reload(), 700);
+    } catch (e) { errToast(e); }
+    fileIn.value = '';
+  });
+  root.append(
+    h('div', { class: 'card' },
+      h('h3', {}, 'This device'),
+      field('Your name', name, 'Shown in the app. Nothing leaves this device.'),
+      h('button', { class: 'primary', onclick: () => save({ 'device.name': name.value.trim() }).then(() => { state.me.username = name.value.trim(); }) }, 'Save')),
+    h('div', { class: 'card' },
+      h('h3', {}, 'Back up and restore'),
+      h('p', {}, 'Your studies only exist on this device. Make a backup now and then, and keep it somewhere safe (Files, iCloud Drive, Google Drive…). It is encrypted with the password you choose here.'),
+      field('Backup password', pass, 'You need the same password to restore. At least 8 characters.'),
+      h('div', { class: 'row' },
+        h('button', {
+          onclick: async () => {
+            try {
+              const r = await post('api/device/export', { password: pass.value });
+              download(`Tolle-backup-${new Date().toISOString().slice(0, 10)}.tolle`, r.data);
+            } catch (e) { errToast(e); }
+          },
+        }, icon('download', 15), 'Make a backup'),
+        h('button', { onclick: () => fileIn.click() }, icon('upload', 15), 'Restore a backup'), fileIn)),
+    h('div', { class: 'card' },
+      h('h3', {}, 'Use a Tolle server instead'),
+      h('p', {}, 'Connect this app to Tolle on your computer, Home Assistant or Docker to share your studies across devices. What is stored on this device stays here – make a backup first if you want to keep it.'),
+      h('button', { onclick: async () => { if (await confirmDialog('Switch this app to a Tolle server?', 'Switch')) { mode.set('server'); location.hash = '#/'; location.reload(); } } }, 'Connect to a server')));
+}
+
 async function accountTab(root) {
+  if (mode.device()) return deviceAccountTab(root);
   const old = h('input', { type: 'password', autocomplete: 'current-password' });
   const nw = h('input', { type: 'password', autocomplete: 'new-password' });
   root.append(h('div', { class: 'card' },
@@ -357,7 +429,9 @@ async function accountTab(root) {
       h('button', { onclick: async () => { await post('api/auth/logout').catch(() => {}); token.set(null); location.hash = '#/'; location.reload(); } }, 'Sign out'))));
   if (isNative) {
     root.append(h('div', { class: 'card' }, h('h3', {}, 'Server'), h('p', {}, serverUrl()),
-      h('button', { onclick: () => { setServerUrl(null); token.set(null); location.reload(); } }, 'Change server')));
+      h('div', { class: 'row' },
+        h('button', { onclick: () => { setServerUrl(null); token.set(null); location.reload(); } }, 'Change server'),
+        h('button', { onclick: async () => { if (await confirmDialog('Use Tolle on this device on its own, without the server?', 'Switch')) { mode.set('device'); location.hash = '#/'; location.reload(); } } }, 'Use this device on its own'))));
   }
   if (state.me.is_admin) {
     const wrap = h('div');
@@ -391,6 +465,18 @@ function addUser(done) {
 // ---------------------------------------------------------------- about
 async function aboutTab(root) {
   const st = await get('api/auth/status');
+  if (mode.device()) {
+    root.append(h('div', { class: 'card' },
+      h('h3', {}, `Tolle ${st.version}`),
+      h('p', {}, 'Running on this device on its own – no server.'),
+      h('h3', { style: { marginTop: '16px' } }, 'How your data is protected'),
+      h('ul', {},
+        h('li', {}, 'Notes, uploads, AI output, reflections, reading history, settings and API keys are encrypted on this device (AES-256-GCM).'),
+        h('li', {}, 'The key is kept in the app’s private storage, and the operating system encrypts the device itself when it has a passcode.'),
+        h('li', {}, 'Nothing is sent anywhere except: Bible text and study sites the AI reads, and your prompt to the AI you chose (none at all with an on-device model).'),
+        h('li', {}, 'Backups (Settings → Account) are encrypted with a password you choose.'))));
+    return;
+  }
   root.append(h('div', { class: 'card' },
     h('h3', {}, `Tolle ${st.version}`),
     h('p', {}, st.addon ? 'Running as a Home Assistant add-on.' : isNative ? `Mobile app connected to ${serverUrl()}.` : 'Running as a standalone server (Docker).'),

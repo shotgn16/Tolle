@@ -27,14 +27,20 @@ case "$arch" in
   aarch64|arm64) arch=arm64 ;;
   *) fail "Unsupported processor: $arch (Tolle supports x64 and arm64)." ;;
 esac
+# Release file names: Tolle-Server-<v>-Linux-x64 / Linux-arm64 / macOS-AppleSilicon / macOS-Intel
+case "$os-$arch" in
+  linux-*) platform="Linux-$arch" ;;
+  macos-arm64) platform="macOS-AppleSilicon" ;;
+  macos-x64) platform="macOS-Intel" ;;
+esac
 
 command -v curl >/dev/null 2>&1 || fail "curl is needed. Install it and run this again."
 if [ -n "${TOLLE_VERSION:-}" ]; then
-  url="https://github.com/$REPO/releases/download/v$TOLLE_VERSION/tolle-server-$TOLLE_VERSION-$os-$arch.tar.gz"
+  url="https://github.com/$REPO/releases/download/v$TOLLE_VERSION/Tolle-Server-$TOLLE_VERSION-$platform.tar.gz"
 else
   v=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | sed -n 's/.*"tag_name": *"v\{0,1\}\([^"]*\)".*/\1/p' | head -n1)
   [ -n "$v" ] || fail "Couldn't find the latest Tolle release. Check your internet connection."
-  url="https://github.com/$REPO/releases/download/v$v/tolle-server-$v-$os-$arch.tar.gz"
+  url="https://github.com/$REPO/releases/download/v$v/Tolle-Server-$v-$platform.tar.gz"
 fi
 
 if [ "$os" = macos ]; then default_dir="$HOME/Library/Application Support/Tolle/server-program"

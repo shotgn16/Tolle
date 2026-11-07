@@ -3,7 +3,7 @@
 #   irm https://github.com/shotgn16/Tolle/releases/latest/download/install.ps1 | iex
 #
 # Run in PowerShell as Administrator. Downloads the Tolle server and starts the setup assistant.
-# For a normal Windows PC, the desktop installer (Tolle-Setup-…-windows-x64.exe) is easier.
+# For a normal Windows PC, the desktop installer (Tolle-…-Windows-x64-Setup.exe) is easier.
 $ErrorActionPreference = 'Stop'
 $Repo = 'shotgn16/Tolle'
 
@@ -15,7 +15,7 @@ $version = $env:TOLLE_VERSION
 if (-not $version) {
   $version = (Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest").tag_name.TrimStart('v')
 }
-$url = "https://github.com/$Repo/releases/download/v$version/tolle-server-$version-windows-x64.zip"
+$url = "https://github.com/$Repo/releases/download/v$version/Tolle-Server-$version-Windows-x64.zip"
 # A permanent home for the program (a server for several people is copied to Program Files during setup).
 $dir = if ($env:TOLLE_DIR) { $env:TOLLE_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\Tolle Server' }
 New-Item -ItemType Directory -Force -Path $dir | Out-Null

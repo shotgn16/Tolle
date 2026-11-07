@@ -1,5 +1,6 @@
 // On-device AI using WebLLM (WebGPU). The model downloads once and is cached by
 // the browser / mobile WebView; after that it runs fully offline on the device.
+// The WebLLM library itself ships with the app (vendor/web-llm), so nothing loads from a CDN.
 let engine = null;
 let loaded = null;
 let webllm = null;
@@ -7,8 +8,15 @@ let webllm = null;
 export function webgpuAvailable() { return !!navigator.gpu; }
 
 async function lib() {
-  if (!webllm) webllm = await import('https://esm.run/@mlc-ai/web-llm');
+  if (!webllm) webllm = await import('../vendor/web-llm/web-llm.js');
   return webllm;
+}
+
+// Inside the phone/tablet apps the browser Cache API isn't always kept, so models go in IndexedDB.
+function appConfig(w) {
+  const native = !!window.Capacitor?.isNativePlatform?.();
+  const backend = native || !('caches' in window) ? 'indexeddb' : 'cache';
+  return { ...w.prebuiltAppConfig, cacheBackend: backend, useIndexedDBCache: backend === 'indexeddb' };
 }
 
 export async function ensureModel(model, onProgress = () => {}) {
@@ -19,7 +27,7 @@ export async function ensureModel(model, onProgress = () => {}) {
   const w = await lib();
   const progress = (r) => onProgress(`Loading ${model}: ${r.text || ''}`);
   if (!engine) {
-    engine = await w.CreateMLCEngine(model, { initProgressCallback: progress });
+    engine = await w.CreateMLCEngine(model, { initProgressCallback: progress, appConfig: appConfig(w) });
   } else if (loaded !== model) {
     engine.setInitProgressCallback(progress);
     await engine.reload(model);

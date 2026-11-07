@@ -130,3 +130,14 @@ def test_pairing_codes():
     with TestClient(app) as c:
         r = c.get("/api/server/pairing", headers=H).json()
         assert "addresses" in r
+
+
+def test_device_engine_data_up_to_date():
+    """The on-device engine (phone apps on their own) uses the server's wording via shared.json."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    r = subprocess.run([sys.executable, str(root / "scripts" / "export-shared.py"), "--check"], capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr

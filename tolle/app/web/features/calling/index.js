@@ -3,6 +3,7 @@ import { renderList, renderSession } from './views.js';
 
 export default {
   id: 'calling',
+  local: () => import('./local.js'),   // used when the app runs on its own (no server)
   nav: [{ route: 'calling', href: '#/calling', icon: 'calling', label: 'Calling', group: 'Reflect' }],
   routes: [
     [/^\/calling$/, 'calling', (view) => renderList(view)],

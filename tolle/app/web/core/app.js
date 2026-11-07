@@ -1,6 +1,6 @@
 // App shell: sign-in, navigation, routing and background polling.
 // Screens come from the features in web/features/ – see features/index.js.
-import { get, isNative, post, serverUrl, setServerUrl, token, ApiError } from './api.js';
+import { get, isNative, mode, post, serverUrl, setServerUrl, signedIn, token, ApiError } from './api.js';
 import { BRAND } from './brand.js';
 import { icon } from './icons.js';
 import { activeFeatures, setEnabled } from './registry.js';
@@ -107,10 +107,33 @@ export function refreshChip() {
   const chip = document.getElementById('ai-chip');
   chip.className = 'chip ai';
   chip.textContent = model || 'No AI';
-  const name = state.me?.username || '';
+  const name = state.me?.username || (mode.device() ? 'This device' : '');
   document.getElementById('sidebar-foot').replaceChildren(h('a', { class: 'who', href: '#/settings?tab=account', style: { textDecoration: 'none', color: 'inherit' } },
     h('span', { class: 'avatar' }, name.slice(0, 1).toUpperCase()),
     h('span', {}, h('div', { class: 'name' }, name), h('div', { class: 'model', title: text }, model ? `AI: ${model}` : 'No AI model set'))));
+}
+
+// ---------------------------------------------------------------- first launch (phone & tablet apps)
+const LS_clearMode = () => mode.set(null);
+
+function welcomeScreen() {
+  showShell(false);
+  const choice = (title, text, onclick) => h('button', { type: 'button', class: 'choice', onclick }, h('strong', {}, title), h('span', {}, text));
+  view.replaceChildren(h('div', { class: 'auth-wrap' }, h('div', { class: 'card auth-card' },
+    h('div', { class: 'brand' }, h('img', { src: 'icons/icon-192.png', width: 48, height: 48 }),
+      h('div', {}, h('strong', {}, BRAND.name), h('small', { class: 'motto', title: BRAND.mottoTitle }, h('em', {}, BRAND.mottoLead), BRAND.mottoRest))),
+    h('p', { style: { textAlign: 'center', fontWeight: 600, margin: '0 0 6px' } }, `How do you want to use ${BRAND.name}?`),
+    h('p', { style: { textAlign: 'center', margin: '0 0 18px' } }, 'You can change this later in Settings → Account.'),
+    h('div', { class: 'choices' },
+      choice('On this device only', 'Everything stays on this phone or tablet, encrypted. No server needed. Use an AI model on the device, or one you choose elsewhere.', () => {
+        mode.set('device');
+        location.hash = '#/settings?tab=ai&welcome=1';
+        start();
+      }),
+      choice('Connect to a Tolle server', 'Sign in to Tolle running on your computer, Home Assistant or Docker. Your studies are shared across your devices.', () => {
+        mode.set('server');
+        serverScreen();
+      })))));
 }
 
 // ---------------------------------------------------------------- auth screens
@@ -129,7 +152,9 @@ function serverScreen() {
         setServerUrl(v);
         try { await get('api/health'); start(); } catch (e) { errToast(e); }
       },
-    }, 'Connect'))));
+    }, 'Connect'),
+    h('p', { style: { marginTop: '14px', textAlign: 'center' } },
+      h('a', { href: '#', onclick: (e) => { e.preventDefault(); LS_clearMode(); welcomeScreen(); } }, 'Use this device on its own instead')))));
 }
 
 async function authScreen() {
@@ -203,14 +228,17 @@ async function showNotification(n) {
 
 // ---------------------------------------------------------------- boot
 async function start() {
-  if (isNative && !serverUrl()) return serverScreen();
-  if (!token.get()) return authScreen();
+  if (isNative && !mode.get()) return welcomeScreen();
+  if (!mode.device()) {
+    if (isNative && !serverUrl()) return serverScreen();
+    if (!token.get()) return authScreen();
+  }
   try {
     state.me = await get('api/me');
     await loadSettings(true);
   } catch (e) {
-    if (e.status === 401) return authScreen();
-    if (isNative) return serverScreen();
+    if (e.status === 401 && !mode.device()) return authScreen();
+    if (isNative && !mode.device()) return serverScreen();
     view.replaceChildren(h('div', { class: 'card' }, e.message));
     return;
   }
@@ -223,7 +251,8 @@ async function start() {
   route();
 }
 
-window.addEventListener('hashchange', () => { if (token.get()) route(); });
+window.addEventListener('hashchange', () => { if (signedIn()) route(); });
+window.addEventListener('tolle:mode', () => { loops.forEach(clearInterval); featureStops.forEach((s) => s && s()); start(); });
 window.addEventListener('tolle:logout', () => { loops.forEach(clearInterval); featureStops.forEach((s) => s && s()); authScreen(); });
 window.addEventListener('tolle:settings', () => { applyTheme(state.settings['ui.theme']); refreshChip(); });
 document.getElementById('menu-btn').addEventListener('click', openMenu);
@@ -237,7 +266,7 @@ function handlePairingLink(link) {
     const server = u.searchParams.get('server');
     if (u.protocol !== 'tolle:' || !server || !/^https?:\/\//.test(server)) return;
     if (server.replace(/\/+$/, '') === serverUrl()) return;
-    setServerUrl(server); token.set(null); start(); toast(`Connected to ${server}. Sign in to continue.`);
+    mode.set('server'); setServerUrl(server); token.set(null); start(); toast(`Connected to ${server}. Sign in to continue.`);
   } catch { /* not a pairing link */ }
 }
 window.Capacitor?.Plugins?.App?.addListener?.('appUrlOpen', (ev) => handlePairingLink(ev.url));

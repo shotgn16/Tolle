@@ -1,6 +1,6 @@
 {
   "name": "tolle-mobile",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Tolle \u2013 Android & iOS apps (Capacitor shell around the Tolle web app)",
   "scripts": {
@@ -14,8 +14,11 @@
     "@capacitor/android": "^8.6.0",
     "@capacitor/app": "^8.0.0",
     "@capacitor/core": "^8.6.0",
+    "@capacitor/filesystem": "^8.1.5",
     "@capacitor/ios": "^8.6.0",
-    "@capacitor/local-notifications": "^8.3.1"
+    "@capacitor/local-notifications": "^8.3.1",
+    "@capacitor/preferences": "^8.0.1",
+    "@capacitor/share": "^8.0.3"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.6.0"

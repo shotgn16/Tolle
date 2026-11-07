@@ -1,7 +1,7 @@
 # Home Assistant add-on configuration
 # https://developers.home-assistant.io/docs/add-ons/configuration
 name: Tolle Bible Study
-version: "0.2.0"
+version: "0.3.0"
 slug: tolle
 description: >-
   AI-assisted Bible study – notes, passage research, insights, a study builder,

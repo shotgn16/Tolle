@@ -15,13 +15,13 @@ From the [latest release](https://github.com/shotgn16/Tolle/releases/latest), pi
 
 | File | For |
 |---|---|
-| `Tolle-…-linux-amd64.deb` (or `-arm64.deb`) | Debian, Ubuntu, Linux Mint, Pop!_OS, Raspberry Pi OS |
-| `Tolle-…-linux-x86_64.AppImage` (or `-arm64.AppImage`) | Any distribution (Fedora, Arch, openSUSE…). Also updates itself |
+| `Tolle-…-Linux-amd64.deb` (or `-arm64.deb`) | Debian, Ubuntu, Linux Mint, Pop!_OS, Raspberry Pi OS |
+| `Tolle-…-Linux-x86_64.AppImage` (or `-arm64.AppImage`) | Any distribution (Fedora, Arch, openSUSE…). Also updates itself |
 
 ### 2a. Install the .deb
 
 ```sh
-sudo apt install ./Tolle-*-linux-amd64.deb
+sudo apt install ./Tolle-*-Linux-amd64.deb
 ```
 
 Then open **Tolle** from your applications menu.
