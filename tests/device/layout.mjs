@@ -73,6 +73,37 @@ for (const [name, dev] of SIZES) {
     await ctx.close();
   }
 }
+// A phone that draws under the status bar and home indicator (Android edge-to-edge, iPhone notch).
+{
+  const ctx = await browser.newContext({ ...devices['Pixel 7'] });
+  await ctx.route('**/*', (route) => {
+    const u = new URL(route.request().url());
+    const p = join(WEB, decodeURIComponent(u.pathname === '/' ? '/index.html' : u.pathname));
+    if (u.origin !== ORIGIN || !existsSync(p)) return route.fulfill({ status: 404, body: '' });
+    return route.fulfill({ body: readFileSync(p), headers: { 'content-type': TYPES[extname(p)] || 'application/octet-stream' } });
+  });
+  await ctx.addInitScript(() => {
+    localStorage.setItem('tolle.mode', 'device');
+  });
+  const page = await ctx.newPage();
+  await page.goto(`${ORIGIN}/index.html#/`);
+  await page.waitForSelector('.page-head', { timeout: 20000 });
+  await page.addStyleTag({ content: ':root { --safe-area-inset-top: 48px; --safe-area-inset-bottom: 30px; }' });
+  await page.click('#menu-btn');
+  await page.waitForTimeout(400);
+  const r = await page.evaluate(() => ({
+    brand: document.querySelector('.sidebar .brand').getBoundingClientRect().top,
+    menu: document.querySelector('.topbar .icon-btn').getBoundingClientRect().top,
+    tabIcons: Math.max(...[...document.querySelectorAll('.tabbar a, .tabbar button')].map((a) => a.getBoundingClientRect().bottom)),
+    h: innerHeight,
+  }));
+  const fine = r.brand >= 48 && r.menu >= 48 && r.tabIcons <= r.h - 30;
+  if (!fine) problems += 1;
+  console.log(`${fine ? '✓' : '✗'} status bar and home indicator kept clear (menu header at ${Math.round(r.brand)}px, top bar at ${Math.round(r.menu)}px, bottom icons end ${Math.round(r.h - r.tabIcons)}px above the edge)`);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/edge-to-edge-menu.png` });
+  await ctx.close();
+}
+
 await browser.close();
 console.log(problems ? `\n${problems} layout problem(s)` : 'Layout OK on every screen and size');
 process.exit(problems ? 1 : 0);

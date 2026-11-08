@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2
+
+- Phones and tablets: the menu no longer slides up under the status bar (clock and battery), and
+  every edge of the screen now keeps clear of the status bar, notch and gesture bar.
+- The layout check before each release now includes a phone that draws under its status bar.
+
 ## 0.3.1
 
 **Phones and tablets: layout fixes**
