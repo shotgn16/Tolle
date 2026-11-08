@@ -58,6 +58,8 @@ jobs:
           python3 tests/device/expected.py > "$RUNNER_TEMP/expected.json"
           cd tests/device && npm install --no-save --no-package-lock playwright@1.63.0 && npx playwright install --with-deps chromium
           node device-mode.mjs "$RUNNER_TEMP/expected.json" "$RUNNER_TEMP/shots"
+      - name: Check every screen fits phones and tablets
+        run: cd tests/device && node layout.mjs "$RUNNER_TEMP/shots/layout"
       - uses: actions/upload-artifact@v7
         if: always()
         with:

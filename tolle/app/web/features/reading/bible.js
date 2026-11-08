@@ -1,5 +1,5 @@
 import { icon } from '../../core/icons.js';
-import { get, post, LS } from '../../core/api.js';
+import { get, post, LS, mode } from '../../core/api.js';
 import { h, state, errToast, mount } from '../../core/ui.js';
 
 const TRANSLATIONS = [
@@ -62,7 +62,7 @@ export async function render(view, query) {
     try {
       const d = await get(`api/bible/chapter?book=${encodeURIComponent(book)}&chapter=${chapter}&translation=${translation}`);
       if (!d.ok || !d.verses.length) {
-        text.replaceChildren(h('div', { class: 'empty' }, 'Couldn’t load this chapter. Check the server has internet access (bible-api.com). Reading time is still being tracked.'));
+        text.replaceChildren(h('div', { class: 'empty' }, `Couldn’t load this chapter. ${mode.device() ? 'Check this device is online' : 'Check the server has internet access'} (bible-api.com). Reading time is still being tracked.`));
       } else {
         text.replaceChildren(h('h2', {}, `${book} ${chapter}`),
           h('p', {}, d.verses.map((v) => [h('sup', {}, v.verse), v.text, ' '])),

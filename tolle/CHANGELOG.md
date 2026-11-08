@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.1
+
+**Phones and tablets: layout fixes**
+- The top bar no longer grows tall on short pages, so the menu button stays at the top (Study notes,
+  Bible, Tasks and others).
+- No page is wider than the screen any more. Settings used to push past the edge on phones and iPads.
+- Long AI model names are shortened in the top bar, and long button labels wrap on small phones.
+- Every screen is now checked on Android phones, iPhones (including the small SE), and iPads in both
+  orientations, in light and dark mode, before each release.
+- On its own, the Bible reader's "couldn't load" message now says to check this device is online.
+
 ## 0.3.0
 
 **The phone and tablet apps work on their own**
