@@ -23,7 +23,7 @@ Open **Settings → AI**:
 
 ## 3. Check the study sites
 
-**Settings → Sources** lists the sites Tolle reads for each passage (StudyLight, BibleStudyTools, Enduring Word, BibleProject and the Bible text). Press **Test** next to each with a reference such as `John 3:16`. A ✓ means it works. If a site has changed its layout, edit its address there ([how](study-sites.md)).
+**Settings → Sources** lists the sites Tolle reads for each passage: the Bible text, StudyLight's and Bible Hub's commentaries, the Church Fathers, the Greek and Hebrew, Matthew Henry, Enduring Word, BibleProject and Easton's Bible Dictionary. Press **Test** next to each with a reference such as `John 3:16`. A ✓ means it works. If a site has changed its layout, edit its address there ([how](study-sites.md)).
 
 ## 4. Turn on notifications
 

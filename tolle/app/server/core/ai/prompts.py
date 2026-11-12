@@ -40,6 +40,8 @@ instructions.register("assistant_compact", "Ground rules – compact (small mode
                       help="Used instead of the ground rules above when Settings → AI → Prompt style is “Compact”. "
                            "Small instruct models follow a few short rules better than many long ones.")
 
+_COMPACT_SOURCES = ("Use the SOURCES above for this task: compare what the different commentators say, and use the historical, "
+                    "original-language and pastoral material too. Name the sources you use.")
 _COMPACT_FOCUS = ("Keep it focused: write every section, briefly and clearly, rather than a few at length. "
                   "Write the answer now.")
 
@@ -75,15 +77,26 @@ def adapt_messages(cfg, messages: list[dict]) -> list[dict]:
     m = _SOURCES_RE.search(last)
     if not m:
         return messages
-    task = last[:m.start()].rstrip()
+    # The long guidance on using the sources becomes one line: small models do better with less to follow.
+    task = last[:m.start()].replace(instructions.text("sources.use"), "").rstrip()
     src = m.group(1).strip()
-    content = (f"<SOURCES>\n{src}\n</SOURCES>\n\nUse the SOURCES above for this task.\n\n" if src else "") + \
+    content = (f"<SOURCES>\n{src}\n</SOURCES>\n\n{_COMPACT_SOURCES}\n\n" if src else "") + \
         f"{task}\n\n{_COMPACT_FOCUS}"
     return [*messages[:-1], {**messages[-1], "content": content}]
 
 
+_SOURCES_USE = """Make full use of the SOURCES – they are there to be weighed, not skimmed:
+- Compare the commentators: note where they agree, where they differ and why, and how the passage has been read across the centuries (the early Church Fathers, the Reformers and Puritans, 18th–19th century and modern writers). Each is labelled with author, date and kind.
+- Draw on the historical writings, the original-language notes (explain a Greek or Hebrew word only where it helps), dictionary entries and cross references.
+- Use the sermon and pastoral material for illustration and application.
+- Name the author or work when you rely on one, and list every source you used under Sources consulted."""
+instructions.register("sources.use", "How to use the study sources", _SOURCES_USE, group="General",
+                      help="Added to every study, insight, plan and notes comparison, just before the material "
+                           "gathered from the study sites.")
+
+
 def sources_block(text: str) -> str:
-    return f"\n\n<SOURCES>\n{text}\n</SOURCES>"
+    return f"\n\n{instructions.text('sources.use')}\n\n<SOURCES>\n{text}\n</SOURCES>"
 
 
 def transcribe_image() -> str:

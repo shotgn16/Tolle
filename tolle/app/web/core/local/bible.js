@@ -46,7 +46,8 @@ const quote = (s) => encodeURIComponent(s).replace(/%2F/g, '/').replace(/[!'()*]
 
 export function templateVars(ref, translation) {
   return {
-    book: ref.book, book_slug: ref.slug, book_q: quote(ref.book), chapter: ref.chapter,
+    book: ref.book, book_slug: ref.slug, book_bh: BOOK_BY_NAME[ref.book]?.bh || ref.slug.replace(/-/g, '_'),
+    book_nab: BOOK_BY_NAME[ref.book]?.nab || ref.slug, book_q: quote(ref.book), chapter: ref.chapter,
     verse: ref.verse_start || 1, ref: ref.display, ref_q: quote(ref.display), translation,
   };
 }

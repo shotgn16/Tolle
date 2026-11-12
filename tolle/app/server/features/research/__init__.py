@@ -13,7 +13,7 @@ def prepare(user_id, params, cfg, progress):
     if not refs:
         raise AIError("I couldn't recognise any Bible references. Try a format like 'John 3:1-16; Romans 8'.")
     results = sources.gather(refs, cfg["sources"], cfg["bible.translation"],
-                             jobs.budget(cfg, params["_provider"]), progress)
+                             jobs.budget(cfg, params["_provider"]), progress, topics=[focus] if focus else None)
     msgs = [jobs.system_message(cfg), {"role": "user", "content": prompts.passage_study(
         ", ".join(r["display"] for r in refs), focus, jobs.level(params), sources.format_for_prompt(results),
         params.get("purpose") or "", (params.get("notes") or "").strip())}]

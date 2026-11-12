@@ -10,34 +10,87 @@ import json
 from .config import SERVER_DEFAULTS
 from .crypto import dec_json, enc
 
+# Where studies get their material. Users can switch these off, edit them or add their own in Settings → Sources.
+#   scope:  passage (the whole reference) | verse (the first verse) | chapter | book | topic (a word, e.g. "love")
+#   kind:   text | commentaries | commentary | historical | language | pastoral | dictionary | overview
+#   parser: pages holding many works are split into them so each is heard (see core/source_parsers.py)
+#   weight: share of the source text budget, relative to the others
 DEFAULT_SOURCES = [
     {
         "id": "bible_text", "name": "Bible text (bible-api.com)", "kind": "text", "enabled": True,
         "url": "https://bible-api.com/{ref_q}?translation={translation}",
-        "scope": "passage",
+        "scope": "passage", "weight": 1,
     },
     {
-        # Same address LifeHub uses: one page with all of StudyLight's commentators on the verse.
-        "id": "studylight", "name": "StudyLight – commentaries", "kind": "commentary", "enabled": True,
+        # One page with ~40 commentators on the verse: from Calvin and the Geneva Bible to Spurgeon-era
+        # sermons (Biblical Illustrator), word studies (Robertson, Vincent) and modern notes (Constable).
+        "id": "studylight", "name": "StudyLight – commentaries", "kind": "commentaries", "enabled": True,
         "url": "https://www.studylight.org/commentary/{book_slug}/{chapter}-{verse}.html",
-        "scope": "verse",
+        "scope": "verse", "parser": "studylight", "weight": 4,
+    },
+    {
+        # Ellicott, MacLaren's sermons, Pulpit Commentary, Cambridge, Spurgeon's Treasury of David, Keil & Delitzsch…
+        "id": "biblehub", "name": "Bible Hub – commentaries", "kind": "commentaries", "enabled": True,
+        "url": "https://biblehub.com/commentaries/{book_bh}/{chapter}-{verse}.htm",
+        "scope": "verse", "parser": "biblehub", "weight": 3,
+    },
+    {
+        # Augustine, Chrysostom, Jerome, Bede… verse by verse (only some verses have them on the page).
+        "id": "catena", "name": "Catena Bible – Church Fathers", "kind": "historical", "enabled": True,
+        "url": "https://catenabible.com/{book_nab}/{chapter}/{verse}",
+        "scope": "verse", "parser": "catena", "weight": 2,
+    },
+    {
+        "id": "interlinear", "name": "Bible Hub – Greek/Hebrew interlinear", "kind": "language", "enabled": True,
+        "url": "https://biblehub.com/interlinear/{book_bh}/{chapter}-{verse}.htm",
+        "scope": "verse", "parser": "interlinear", "weight": 1,
     },
     {
         "id": "bst_mhc", "name": "BibleStudyTools – Matthew Henry Complete", "kind": "commentary", "enabled": True,
         "url": "https://www.biblestudytools.com/commentaries/matthew-henry-complete/{book_slug}/{chapter}.html",
-        "scope": "chapter",
+        "scope": "chapter", "weight": 1.5,
     },
     {
-        "id": "enduring_word", "name": "Enduring Word – David Guzik", "kind": "commentary", "enabled": True,
+        "id": "enduring_word", "name": "Enduring Word – David Guzik", "kind": "pastoral", "enabled": True,
         "url": "https://enduringword.com/bible-commentary/{book_slug}-{chapter}/",
-        "scope": "chapter",
+        "scope": "chapter", "weight": 1.5,
     },
     {
         "id": "bibleproject", "name": "BibleProject – book overview", "kind": "overview", "enabled": True,
         "url": "https://bibleproject.com/explore/video/{book_slug}/",
-        "scope": "book",
+        "scope": "book", "weight": 0.75,
+    },
+    {
+        "id": "easton", "name": "Easton's Bible Dictionary (StudyLight)", "kind": "dictionary", "enabled": True,
+        "url": "https://www.studylight.org/dictionaries/eng/ebd/{topic_letter}/{topic_slug}.html",
+        "scope": "topic", "weight": 0.75,
     },
 ]
+
+DEFAULT_SOURCE_IDS = [s["id"] for s in DEFAULT_SOURCES]
+
+
+def with_new_sources(sources: list[dict], known: list[str]) -> tuple[list[dict], list[str]]:
+    """Add sources that came with an update, and fill in new fields on built-in ones you already have.
+
+    `known` lists the built-in sources you've already been given, so one you deleted doesn't come back.
+    Your own edits (names, addresses, on/off) are kept.
+    """
+    have = {s.get("id"): s for s in sources}
+    out = [dict(s) for s in sources]
+    for d in DEFAULT_SOURCES:
+        mine = have.get(d["id"])
+        if mine is not None:
+            row = next(s for s in out if s.get("id") == d["id"])
+            for k in ("parser", "weight"):
+                if k in d:
+                    row.setdefault(k, d[k])
+            if d["id"] == "studylight" and row.get("kind") == "commentary":
+                row["kind"] = "commentaries"
+        elif d["id"] not in known:
+            out.append(dict(d))
+    return out, DEFAULT_SOURCE_IDS
+
 
 LEVELS = {
     "intro": "Introduction",
@@ -51,7 +104,7 @@ DEFAULTS: dict[str, Any] = {
     "ai.model": "",
     "ai.thinking": False,
     "ai.temperature": 0.6,
-    "ai.context_chars": 24000,        # budget of source text sent to the model
+    "ai.context_chars": 40000,        # budget of source text sent to the model (Ollama: capped to fit its context window)
     "ai.max_output_tokens": 8000,     # longest answer (tokens) before Tolle asks the model to keep going
     "ai.auto_continue": 3,            # how many times to continue an answer that hit the length limit
     "ai.prompt_style": "auto",        # auto | full | compact (small instruct models); auto = compact on-device
@@ -79,6 +132,8 @@ DEFAULTS: dict[str, Any] = {
     "ui.ai_colour": "#7c3aed",        # colour of everything the AI writes
 }
 
+DEFAULTS["sources.known"] = DEFAULT_SOURCE_IDS
+
 DEFAULTS.update({k: v for k, v in SERVER_DEFAULTS.items() if k in DEFAULTS or "." in k})
 
 # Good values for small instruct models on modest hardware (Settings → AI → "Small model" fills these in;
@@ -104,10 +159,22 @@ def get(user_id: int, key: str, default: Any = None) -> Any:
     return dec_json(row["value_enc"], DEFAULTS.get(key, default))
 
 
+# The built-in sources before "sources.known" was kept (Tolle 0.4.0 and earlier).
+_FIRST_SOURCE_IDS = ["bible_text", "studylight", "bst_mhc", "enduring_word", "bibleproject"]
+
+
 def get_all(user_id: int) -> dict[str, Any]:
     out = dict(DEFAULTS)
+    stored = set()
     for row in db.q("SELECT key, value_enc FROM settings WHERE user_id=?", (user_id,)):
         out[row["key"]] = dec_json(row["value_enc"], DEFAULTS.get(row["key"]))
+        stored.add(row["key"])
+    if "sources" in stored:
+        known = out.get("sources.known") if "sources.known" in stored else _FIRST_SOURCE_IDS
+        updated, now_known = with_new_sources(out["sources"] or [], known or [])
+        if updated != out["sources"] or known != now_known:
+            set_many(user_id, {"sources": updated, "sources.known": now_known})
+            out["sources"], out["sources.known"] = updated, now_known
     return out
 
 

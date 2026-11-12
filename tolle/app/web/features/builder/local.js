@@ -40,7 +40,7 @@ export function register(engine) {
           progress('Looking for suitable passages…');
           refs = await J.suggestRefs(cfg, params._provider, params._model, params.theme);
         }
-        const results = await gather(refs, cfg.sources, cfg['bible.translation'], J.budget(cfg, params._provider), progress);
+        const results = await gather(refs, cfg.sources, cfg['bible.translation'], J.budget(cfg, params._provider), progress, params.theme ? [params.theme] : null);
         return {
           messages: [J.systemMessage(cfg), { role: 'user', content: builder(params, formatForPrompt(results)) }],
           meta: { sources: sourceMeta(results), refs: refs.map((r) => r.display) },

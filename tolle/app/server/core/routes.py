@@ -197,12 +197,13 @@ def bible_parse(text: str):
 
 @router.post("/sources/test")
 def sources_test(body: dict = Body(...), user: User = Depends(current_user)):
-    refs = parse_refs(body.get("ref") or "John 3:16")
-    if not refs:
+    src = dict(body["source"], enabled=True)
+    ref = body.get("ref") or ("love" if src.get("scope") == "topic" else "John 3:16")
+    refs = [] if src.get("scope") == "topic" else parse_refs(ref)
+    if src.get("scope") != "topic" and not refs:
         raise HTTPException(400, "Enter a valid reference.")
-    res = sources.gather(refs[:1], [dict(body["source"], enabled=True)], settings.get(user.id, "bible.translation"),
-                         4000)
-    return [{"url": r["url"], "ok": r["ok"], "preview": r["text"][:500]} for r in res]
+    res = sources.gather(refs[:1], [src], settings.get(user.id, "bible.translation"), 12000, topics=[ref])
+    return [{"url": r["url"], "ok": r["ok"], "preview": sources.preview(r)} for r in res]
 
 
 # ================================================================ devices & notifications

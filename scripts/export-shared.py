@@ -28,7 +28,7 @@ def build() -> dict:
     from server.core.ai import instructions
     from server.core.ai import prompts as core_prompts
     from server.core.ai.providers import ONDEVICE_MODELS, PROVIDERS
-    from server.core.bible import BOOKS
+    from server.core.bible import BOOKS, NAB_CODES, biblehub_slug
     from server.core.config import VERSION
 
     loaded = features.load()            # registers every feature's instructions and default settings
@@ -54,7 +54,8 @@ def build() -> dict:
         "default_sources": settings.DEFAULT_SOURCES,
         "providers": PROVIDERS,
         "ondevice_models": ONDEVICE_MODELS,
-        "books": [{"name": n, "slug": s, "chapters": c, "abbrs": a} for n, s, c, a in BOOKS],
+        "books": [{"name": n, "slug": s, "chapters": c, "abbrs": a, "bh": biblehub_slug(s), "nab": NAB_CODES[n]}
+                  for n, s, c, a in BOOKS],
         "text": {
             "transcribe": core_prompts.transcribe_image(),
             "calling_opening": calling.calling_opening(""),

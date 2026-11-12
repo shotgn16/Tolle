@@ -8,11 +8,12 @@ original page in the AI output.
 import json
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 from bs4 import BeautifulSoup
 
-from . import db
+from . import db, source_parsers
 from .bible import BOOK_BY_NAME, template_vars
 from .crypto import dec, enc
 
@@ -28,7 +29,8 @@ def _extract_html(html: str) -> str:
         tag.decompose()
     main = soup.find("article") or soup.find("main") or soup.find(id="content") or soup.body or soup
     text = main.get_text("\n", strip=True)
-    lines = [ln for ln in (l.strip() for l in text.splitlines()) if len(ln) > 2]
+    # Short lines are mostly menu clutter – but keep numbers (Strong's) and Greek/Hebrew words.
+    lines = [ln for ln in (l.strip() for l in text.splitlines()) if len(ln) > 2 or ln.isdigit() or any(ord(c) > 127 and c.isalpha() for c in ln)]
     return "\n".join(lines)
 
 
@@ -88,46 +90,110 @@ def chapter(book: str, chapter_no: int, translation: str) -> dict:
             "source": url}
 
 
-def gather(refs: list[dict], sources: list[dict], translation: str, budget: int,
-           progress=lambda msg: None) -> list[dict]:
-    """Return a list of {name, url, ok, text} trimmed to fit the character budget."""
-    urls: list[tuple[dict, str, str]] = []
-    seen = set()
-    for ref in refs[:8]:
-        tv = template_vars(ref, translation)
-        for src in sources:
-            if not src.get("enabled"):
-                continue
-            try:
-                url = src["url"].format(**tv)
-            except (KeyError, IndexError, ValueError):
-                continue
-            if url in seen:
-                continue
+def topic_vars(topic: str) -> dict | None:
+    """URL parts for a dictionary look-up of a topic word (e.g. "love" → l/love). Short topics only."""
+    words = re.findall(r"[a-z]+", (topic or "").lower())
+    if not words or len(words) > 2:
+        return None
+    slug = "-".join(words)
+    return {"topic": " ".join(words), "topic_slug": slug, "topic_letter": slug[0]}
+
+
+def plan(refs: list[dict], sources: list[dict], translation: str, topics: list[str] | None = None) -> list[tuple]:
+    """Which pages to read: (source, url, label) for every enabled source and reference (or topic)."""
+    urls, seen = [], set()
+
+    def add(src, tv, label):
+        try:
+            url = src["url"].format(**tv)
+        except (KeyError, IndexError, ValueError):
+            return
+        if url not in seen:
             seen.add(url)
-            urls.append((src, url, ref["display"]))
+            urls.append((src, url, label))
 
-    results = []
-    for i, (src, url, label) in enumerate(urls, 1):
-        progress(f"Reading {src['name']} for {label} ({i}/{len(urls)})")
-        ok, text = fetch(url)
-        results.append({"name": src["name"], "kind": src.get("kind", ""), "ref": label, "url": url,
-                        "ok": ok, "text": text if ok else ""})
+    for src in sources:
+        if not src.get("enabled"):
+            continue
+        if src.get("scope") == "topic":
+            for t in (topics or [])[:3]:
+                tv = topic_vars(t)
+                if tv:
+                    add(src, tv, t)
+            continue
+        for ref in refs[:8]:
+            add(src, template_vars(ref, translation), ref["display"])
+    return urls
 
+
+def share(results: list[dict], budget: int) -> None:
+    """Share the character budget between the pages, by each source's weight (in place)."""
     good = [r for r in results if r["ok"]]
-    if good:
-        # Scripture text is short and most important; share the rest fairly.
-        per = max(1500, budget // max(1, len(good)))
-        for r in good:
-            limit = per * 2 if r["kind"] == "text" else per
-            if len(r["text"]) > limit:
-                r["text"] = r["text"][:limit] + "\n[…trimmed]"
+    if not good:
+        return
+    total = sum(r["weight"] for r in good)
+    for r in good:
+        room = max(1200, int(budget * r["weight"] / total))
+        if r.get("sections"):
+            r["sections"] = source_parsers.pick(r["sections"], room)
+            r["text"] = ""
+        elif len(r["text"]) > room:
+            r["text"] = r["text"][:room] + "\n[…trimmed]"
+
+
+def gather(refs: list[dict], sources: list[dict], translation: str, budget: int,
+           progress=lambda msg: None, topics: list[str] | None = None) -> list[dict]:
+    """Read every enabled source for the references (and topic words), and fit them to the budget.
+
+    Returns [{name, kind, ref, url, ok, text, sections}]. Pages that hold many works (StudyLight,
+    Bible Hub, Catena Bible) are split into those works so each is represented, see source_parsers.
+    """
+    urls = plan(refs, sources, translation, topics)
+    if not urls:
+        return []
+    progress(f"Reading {len(urls)} study pages…")
+    done = [0]
+
+    def read(item):
+        src, url, label = item
+        ok, text = fetch(url)
+        done[0] += 1
+        progress(f"Read {src['name']} for {label} ({done[0]}/{len(urls)})")
+        sections = []
+        parser = source_parsers.PARSERS.get(src.get("parser") or "")
+        if ok and parser:
+            sections = parser(text)
+            if not sections and src.get("parser") in ("catena", "interlinear"):
+                ok = False          # the page didn't have what we came for
+        return {"name": src["name"], "kind": src.get("kind", ""), "ref": label, "url": url, "ok": ok,
+                "text": text if ok else "", "sections": sections, "weight": float(src.get("weight") or 1)}
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        results = list(pool.map(read, urls))
+    share(results, budget)
     return results
 
 
+def preview(r: dict) -> str:
+    """What a source found, for the Test button in Settings → Sources."""
+    if r.get("sections"):
+        names = ", ".join(s["label"] for s in r["sections"][:12])
+        more = f" and {len(r['sections']) - 12} more" if len(r["sections"]) > 12 else ""
+        return f"{len(r['sections'])} works used: {names}{more}\n\n{r['sections'][0]['text'][:300]}"
+    return r["text"][:500]
+
+
+_KIND_ORDER = ["text", "commentaries", "commentary", "historical", "language", "pastoral", "dictionary", "overview", "other"]
+
+
 def format_for_prompt(results: list[dict]) -> str:
+    good = sorted((r for r in results if r["ok"]), key=lambda r: _KIND_ORDER.index(r["kind"]) if r["kind"] in _KIND_ORDER else 99)
     blocks = []
-    for r in results:
-        if r["ok"]:
-            blocks.append(f"### SOURCE: {r['name']} — {r['ref']}\nURL: {r['url']}\n{r['text']}")
+    for r in good:
+        head = f"### SOURCE: {r['name']} — {r['ref']}\nURL: {r['url']}"
+        if r.get("sections"):
+            parts = "\n\n".join(f"#### {s['label']} · {s['group']}\n{s['text']}" for s in r["sections"])
+            blocks.append(f"{head}\n{parts}")
+        elif r["text"]:
+            blocks.append(f"{head}\n{r['text']}")
     return "\n\n".join(blocks) if blocks else "(No external sources could be retrieved.)"

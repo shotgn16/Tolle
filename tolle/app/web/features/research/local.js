@@ -33,7 +33,7 @@ export function register(engine) {
         const focus = (params.focus || '').trim();
         const refs = parseRefs(`${passages}\n${focus}`, 8);
         if (!refs.length) throw new AIError("I couldn't recognise any Bible references. Try a format like 'John 3:1-16; Romans 8'.");
-        const results = await gather(refs, cfg.sources, cfg['bible.translation'], J.budget(cfg, params._provider), progress);
+        const results = await gather(refs, cfg.sources, cfg['bible.translation'], J.budget(cfg, params._provider), progress, focus ? [focus] : null);
         return {
           messages: [J.systemMessage(cfg), { role: 'user', content: passageStudy(refs.map((r) => r.display).join(', '), focus, J.level(params), formatForPrompt(results), params.purpose || '', (params.notes || '').trim()) }],
           meta: { sources: sourceMeta(results), refs: refs.map((r) => r.display) },

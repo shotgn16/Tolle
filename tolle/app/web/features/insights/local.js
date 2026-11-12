@@ -27,7 +27,7 @@ export function register(engine) {
           progress('Finding key passages…');
           refs = await J.suggestRefs(cfg, params._provider, params._model, query);
         }
-        const results = await gather(refs, cfg.sources, cfg['bible.translation'], J.budget(cfg, params._provider), progress);
+        const results = await gather(refs, cfg.sources, cfg['bible.translation'], J.budget(cfg, params._provider), progress, parseRefs(query, 1).length ? null : [query]);
         return {
           messages: [J.systemMessage(cfg), { role: 'user', content: insight(params.mode || 'topic', query, J.level(params), formatForPrompt(results)) }],
           meta: { sources: sourceMeta(results), refs: refs.map((r) => r.display) },

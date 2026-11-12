@@ -11,7 +11,7 @@ def prepare(user_id, params, cfg, progress):
         progress("Looking for suitable passages…")
         refs = jobs.suggest_refs(cfg, params["_provider"], params["_model"], params["theme"])
     results = sources.gather(refs, cfg["sources"], cfg["bible.translation"],
-                             jobs.budget(cfg, params["_provider"]), progress)
+                             jobs.budget(cfg, params["_provider"]), progress, topics=[params["theme"]] if params.get("theme") else None)
     msgs = [jobs.system_message(cfg),
             {"role": "user", "content": prompts.builder(params, sources.format_for_prompt(results))}]
     return msgs, None, {"sources": jobs.source_meta(results), "refs": [r["display"] for r in refs]}

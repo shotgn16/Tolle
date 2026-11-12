@@ -122,10 +122,24 @@ def parse_refs(text: str, limit: int = 40) -> list[dict]:
     return found
 
 
+# Book codes used by Catena Bible (the NABRE abbreviations), for the Church Fathers verse by verse.
+NAB_CODES = dict(zip([b[0] for b in BOOKS], (
+    "gn ex lv nm dt jos jgs ru 1sm 2sm 1kgs 2kgs 1chr 2chr ezr neh est jb ps prv eccl sg is jer lam ez dn hos jl am ob "
+    "jon mi na hb zep hg zec mal mt mk lk jn acts rom 1cor 2cor gal eph phil col 1thes 2thes 1tm 2tm ti phlm heb jas "
+    "1pt 2pt 1jn 2jn 3jn jude rv").split()))
+
+
+def biblehub_slug(slug: str) -> str:
+    """Bible Hub writes 1_corinthians and songs."""
+    return "songs" if slug == "song-of-solomon" else slug.replace("-", "_")
+
+
 def template_vars(ref: dict, translation: str) -> dict:
     return {
         "book": ref["book"],
         "book_slug": ref["slug"],
+        "book_bh": biblehub_slug(ref["slug"]),
+        "book_nab": NAB_CODES.get(ref["book"], ref["slug"]),
         "book_q": urllib.parse.quote(ref["book"]),
         "chapter": ref["chapter"],
         "verse": ref.get("verse_start") or 1,

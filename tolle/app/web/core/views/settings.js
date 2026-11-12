@@ -221,8 +221,8 @@ function aiTab(root) {
         'About ¾ of a word per token. If an answer reaches this, Tolle asks the model to carry on.'),
       field('Keep going (times)', inp('ai.auto_continue', 'number', '3', { min: '0', max: '8' }),
         'How many times Tolle continues an answer that was cut off. 0 turns it off.'),
-      field('Source text budget (characters)', inp('ai.context_chars', 'number', '24000', { min: '1000', step: '1000' }),
-        'How much study-site and Bible text is sent with each request. Lower it for small models.'),
+      field('Source text budget (characters)', inp('ai.context_chars', 'number', '40000', { min: '1000', step: '1000' }),
+        'How much study-site and Bible text is sent with each request. With Ollama, Tolle also keeps it within the context window.'),
       field('Creativity (temperature)', inp('ai.temperature', 'number', '0.6', { step: '0.05', min: '0', max: '1.5' }), '0.2 = focused, 1.0 = creative. Small models do better a little lower.')),
     h('button', { class: 'primary', onclick: () => save(vals) }, 'Save')));
   loadModels();
@@ -230,13 +230,17 @@ function aiTab(root) {
 
 // Recommended values for each model size (Settings → AI → Answers and model size). All can be changed.
 const PRESETS = {
-  large: { 'ai.prompt_style': 'full', 'ai.max_output_tokens': 8000, 'ai.auto_continue': 3, 'ai.context_chars': 24000,
+  large: { 'ai.prompt_style': 'full', 'ai.max_output_tokens': 8000, 'ai.auto_continue': 3, 'ai.context_chars': 40000,
     'ai.temperature': 0.6, 'ai.repeat_penalty': 1.12, 'ollama.num_ctx': 16384 },
   small: { 'ai.prompt_style': 'compact', 'ai.max_output_tokens': 3000, 'ai.auto_continue': 2, 'ai.context_chars': 6000,
     'ai.temperature': 0.4, 'ai.repeat_penalty': 1.15, 'ollama.num_ctx': 8192, 'ai.thinking': false },
 };
 
 // ---------------------------------------------------------------- sources
+const SOURCE_KINDS = [['text', 'Bible text'], ['commentaries', 'Many commentaries'], ['commentary', 'Commentary'], ['historical', 'Historical writings'],
+  ['language', 'Original languages'], ['pastoral', 'Sermons & pastoral'], ['dictionary', 'Dictionary'], ['overview', 'Book overview'], ['other', 'Other']];
+const SOURCE_SCOPES = [['passage', 'the passage'], ['verse', 'the first verse'], ['chapter', 'the chapter'], ['book', 'the book'], ['topic', 'a topic word']];
+
 function sourcesTab(root) {
   let list = JSON.parse(JSON.stringify(state.settings.sources || []));
   const wrap = h('div');
@@ -244,12 +248,16 @@ function sourcesTab(root) {
   const draw = () => wrap.replaceChildren(...list.map((src, i) => {
     const name = h('input', { value: src.name, oninput: (e) => { src.name = e.target.value; } });
     const url = h('input', { value: src.url, oninput: (e) => { src.url = e.target.value; } });
-    const kind = h('select', { onchange: (e) => { src.kind = e.target.value; } },
-      ['text', 'commentary', 'overview', 'dictionary', 'other'].map((k) => h('option', { selected: k === src.kind }, k)));
-    const out = h('div', { class: 'hint' });
+    const kind = h('select', { 'aria-label': 'Kind of source', onchange: (e) => { src.kind = e.target.value; } },
+      SOURCE_KINDS.map(([k, label]) => h('option', { value: k, selected: k === src.kind }, label)));
+    const scope = h('select', { 'aria-label': 'What it looks up', onchange: (e) => { src.scope = e.target.value; } },
+      SOURCE_SCOPES.map(([k, label]) => h('option', { value: k, selected: k === (src.scope || 'passage') }, label)));
+    const out = h('div', { class: 'hint', style: { whiteSpace: 'pre-wrap' } });
     return h('div', { class: 'card' },
       h('div', { class: 'row' }, switchEl('', src.enabled, (v) => { src.enabled = v; }), h('div', { class: 'grow' }, name), kind),
       h('div', { style: { marginTop: '10px' } }, url),
+      h('div', { class: 'row', style: { marginTop: '10px' } }, h('span', { class: 'muted' }, 'Looks up'), scope,
+        src.parser ? h('span', { class: 'muted', title: 'Tolle splits this page into the separate works on it, so each is used.' }, '· split into separate works') : null),
       h('div', { class: 'row', style: { marginTop: '10px' } },
         h('button', {
           class: 'small',
@@ -257,7 +265,7 @@ function sourcesTab(root) {
             e.target.disabled = true; out.textContent = 'Testing…';
             try {
               const r = await post('api/sources/test', { source: src, ref: testRef.value });
-              out.textContent = r.length ? `${r[0].ok ? '✓ Works' : '✗ Failed'} – ${r[0].url}\n${r[0].preview.slice(0, 200)}` : 'No URL produced.';
+              out.textContent = r.length ? `${r[0].ok ? '✓ Works' : '✗ Nothing useful found'} – ${r[0].url}\n${r[0].preview.slice(0, 600)}` : 'No URL produced – check the placeholders.';
             } catch (err) { out.textContent = err.message; }
             e.target.disabled = false;
           },
@@ -269,13 +277,19 @@ function sourcesTab(root) {
   root.append(
     h('div', { class: 'card kbd-help' },
       h('h3', {}, 'Research sources'),
-      h('p', {}, 'The AI reads these pages for each passage it studies and links back to them. If a site changes its address layout, fix the template here. Placeholders: ',
-        ...['{book}', '{book_slug}', '{chapter}', '{verse}', '{ref}', '{ref_q}', '{translation}'].map((p) => [h('code', {}, p), ' '])),
+      h('p', {}, 'The AI reads all of these for each passage it studies – commentaries from the early Church to today, historical writings, original languages, sermons and dictionaries – weighs them against each other and links back to them. Pages that hold many works are split up so every commentator is heard, not just the first.'),
+      h('p', {}, 'If a site changes its address layout, fix the template here. Placeholders: ',
+        ...['{book}', '{book_slug}', '{book_bh}', '{book_nab}', '{chapter}', '{verse}', '{ref}', '{ref_q}', '{translation}', '{topic_slug}', '{topic_letter}'].map((p) => [h('code', {}, p), ' '])),
       h('p', { class: 'muted' }, 'Pages are cached for 30 days so the sites aren’t hit repeatedly. Please respect each site’s terms – this is for personal study.'),
       field('Reference used by the Test buttons', testRef)),
     wrap,
     h('div', { class: 'row', style: { marginTop: '14px' } },
       h('button', { onclick: () => { list.push({ id: `custom_${Date.now()}`, name: 'New source', kind: 'commentary', enabled: true, url: 'https://example.com/{book_slug}/{chapter}' }); draw(); } }, icon('plus', 15), 'Add source'),
+      h('button', { class: 'ghost', onclick: () => {
+        const missing = (state.defaultSources || []).filter((d) => !list.some((x) => x.id === d.id));
+        if (!missing.length) { toast('All the built-in sources are already here.'); return; }
+        list.push(...JSON.parse(JSON.stringify(missing))); draw(); toast(`Added ${missing.length} – press Save sources to keep them.`);
+      } }, 'Add back built-in sources'),
       h('button', { class: 'ghost', onclick: async () => { if (await confirmDialog('Reset all sources to the defaults?', 'Reset')) { list = JSON.parse(JSON.stringify(state.defaultSources)); draw(); } } }, 'Reset to defaults'),
       h('span', { class: 'grow' }),
       h('button', { class: 'primary', onclick: () => save({ sources: list }) }, 'Save sources')));

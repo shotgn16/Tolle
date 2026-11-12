@@ -4,14 +4,43 @@ import SHARED from './shared.js';
 import { db } from './store.js';
 
 // On a phone there's no server nearby, so start with the on-device model (a small one that suits phones).
-const DEVICE_DEFAULTS = { 'ai.provider': 'ondevice', 'ondevice.model': 'Qwen3-1.7B-q4f16_1-MLC', 'ai.context_chars': 12000 };
+const DEVICE_DEFAULTS = { 'ai.provider': 'ondevice', 'ondevice.model': 'Qwen3-1.7B-q4f16_1-MLC' };
 
 export const DEFAULTS = { ...SHARED.defaults, ...DEVICE_DEFAULTS };
 export const LEVELS = SHARED.levels;
 const SECRET = new Set(SHARED.secret_keys);
 const MASK = '••••••••';
 
-export function all() { return { ...DEFAULTS, ...db.doc('settings') }; }
+// Sources that came with an update are added, and new fields filled in on built-in ones you already have;
+// `sources.known` remembers which built-ins you've been given, so one you deleted doesn't come back.
+// Same rules as server/core/settings.py (with_new_sources).
+const FIRST_SOURCE_IDS = ['bible_text', 'studylight', 'bst_mhc', 'enduring_word', 'bibleproject'];
+const DEFAULT_SOURCE_IDS = SHARED.default_sources.map((s) => s.id);
+
+export function withNewSources(sources, known) {
+  const out = sources.map((s) => ({ ...s }));
+  for (const d of SHARED.default_sources) {
+    const mine = out.find((s) => s.id === d.id);
+    if (mine) {
+      for (const k of ['parser', 'weight']) if (!(k in mine) && d[k] !== undefined) mine[k] = d[k];
+      if (d.id === 'studylight' && mine.kind === 'commentary') mine.kind = 'commentaries';
+    } else if (!known.includes(d.id)) out.push({ ...d });
+  }
+  return out;
+}
+
+export function all() {
+  const saved = db.doc('settings');
+  if (Array.isArray(saved.sources)) {
+    const known = saved['sources.known'] || FIRST_SOURCE_IDS;
+    const updated = withNewSources(saved.sources, known);
+    if (JSON.stringify(updated) !== JSON.stringify(saved.sources) || JSON.stringify(known) !== JSON.stringify(DEFAULT_SOURCE_IDS)) {
+      db.setDoc('settings', { ...saved, sources: updated, 'sources.known': DEFAULT_SOURCE_IDS });
+      return { ...DEFAULTS, ...saved, sources: updated, 'sources.known': DEFAULT_SOURCE_IDS };
+    }
+  }
+  return { ...DEFAULTS, ...saved };
+}
 export function get(key) { return all()[key]; }
 
 export function publicValues() {

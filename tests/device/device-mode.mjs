@@ -62,7 +62,13 @@ async function setup(context) {
     if (u.hostname === 'bible-api.com') {
       return route.fulfill({ status: 200, headers: cors, json: { reference: 'x', verses: [1, 2, 3].map((v) => ({ book_name: 'John', chapter: 3, verse: v, text: `Verse ${v} text of the fake Bible, long enough to count.` })) } });
     }
-    if (/studylight|biblestudytools|bibleproject|blueletterbible|biblehub|gotquestions/.test(u.hostname)) {
+    const page = (text) => route.fulfill({ status: 200, headers: { ...cors, 'content-type': 'text/html' },
+      body: `<html><body><nav>menu</nav><article>${text.split('\n').map((l) => `<p>${l.replace(/</g, '&lt;')}</p>`).join('')}</article></body></html>` });
+    if (u.hostname === 'www.studylight.org' && u.pathname.startsWith('/commentary/')) return page(EXPECTED.pages.studylight);
+    if (u.hostname === 'biblehub.com' && u.pathname.startsWith('/commentaries/')) return page(EXPECTED.pages.biblehub);
+    if (u.hostname === 'biblehub.com' && u.pathname.startsWith('/interlinear/')) return page(EXPECTED.pages.interlinear);
+    if (u.hostname === 'catenabible.com') return page(u.pathname.startsWith('/jn/') ? EXPECTED.pages.catena : EXPECTED.pages.catena_empty);
+    if (/studylight|biblestudytools|bibleproject|blueletterbible|biblehub|gotquestions|enduringword/.test(u.hostname)) {
       return route.fulfill({ status: 200, headers: { ...cors, 'content-type': 'text/html' },
         body: `<html><body><nav>menu</nav><article><h1>Commentary on ${u.pathname}</h1><p>A long and careful commentary paragraph from ${u.hostname} about this passage and its meaning.</p></article></body></html>` });
     }
@@ -114,6 +120,29 @@ const parity = await page.evaluate(async (E) => {
   return { res, refs };
 }, EXPECTED);
 for (const [k, v] of Object.entries(parity.res)) ok(v, `${k} prompt is identical`);
+const srcParity = await page.evaluate(async (E) => {
+  const P = await import('/core/local/parsers.js');
+  const S = await import('/core/local/sources.js');
+  const { parseRefs } = await import('/core/local/bible.js');
+  const SHARED = (await import('/core/local/shared.js')).default;
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const parsed = Object.fromEntries(Object.entries(E.pages).map(([k, v]) => [k, P.PARSERS[k.split('_')[0]](v)]));
+  const mixed = [...parsed.studylight, ...parsed.biblehub, ...parsed.catena];
+  const plan = S.plan(parseRefs('Song of Solomon 2:4; 1 Corinthians 13:4'), SHARED.default_sources, 'web', ['love', 'work and rest']).map(([s, u, l]) => [s.id, u, l]);
+  return {
+    parsed: Object.fromEntries(Object.keys(parsed).map((k) => [k, same(parsed[k], E.parsed[k])])),
+    picked: same(P.pick(mixed, 3000), E.picked),
+    plan: same(plan, E.plan) || JSON.stringify(plan),
+    citations: same([
+      'Clarke, Adam. "Commentary on John 3:16". "The Adam Clarke Commentary". 1832.',
+      'Exell, Joseph S. "Commentary on "John 3:16". The Biblical Illustrator. 1905-1909. New York.',
+      'Haydock, George Leo. "Commentary on John 3". "George Haydock\'s Catholic Bible Commentary". 1859.'].map(P.citation), E.citations),
+  };
+}, EXPECTED);
+for (const [k, v] of Object.entries(srcParity.parsed)) ok(v, `${k} page is split the same as on the server`);
+ok(srcParity.picked, 'sources are shared out the same as on the server');
+ok(srcParity.plan === true, `the same study pages are read as on the server${srcParity.plan === true ? '' : `: ${srcParity.plan}`}`);
+ok(srcParity.citations, 'citations are read the same as on the server');
 for (const [k, v] of Object.entries(parity.refs)) ok(v === true, `parse “${k}”${v === true ? '' : ` → ${v}`}`);
 
 console.log('Settings and models');
@@ -130,6 +159,11 @@ ok(study && study.study_id && study.entry_id, 'passage study finished and saved'
 const lastChat = chats[chats.length - 1];
 ok(lastChat.think === true && lastChat.messages[0].role === 'system', 'thinking request sent with system message');
 ok(/StudyLight/.test(lastChat.messages[1].content) && /Verse 1 text of the fake Bible/.test(lastChat.messages[1].content), 'prompt includes the study sites and Bible text');
+const sent = lastChat.messages[1].content;
+ok(/#### Calvin, John – Calvin's Commentary on the Bible \(1840\) · reformation & puritan/.test(sent), 'StudyLight is split into its commentators, each labelled');
+ok(/Augustine of Hippo \(AD 430\) · early church/.test(sent) && /MacLaren's Expositions · pastoral/.test(sent) && /Strong's 25/.test(sent), `Church Fathers, sermons and original languages are all in the prompt ${[/Augustine/, /MacLaren/, /Strong's 25/].map((r) => r.test(sent)).join()}`);
+if (process.env.DUMP) console.log(sent.slice(0, 6000));
+ok(/Make full use of the SOURCES/.test(sent), 'the AI is told to weigh every kind of source');
 const s1 = await call(`return api.get('api/studies/' + a);`, study.study_id);
 ok(s1.entries[0].author === 'ai' && /Fake answer/.test(s1.entries[0].content), 'AI note stored on the study');
 ok(s1.entries[0].meta.sources.some((x) => x.ok), 'sources recorded on the note');

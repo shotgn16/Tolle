@@ -64,9 +64,20 @@ def level_name(params) -> str:
 
 
 def budget(cfg, provider) -> int:
-    """How many characters of source material to send to the model."""
-    b = int(cfg.get("ai.context_chars") or 24000)
-    return min(b, 9000) if provider == "ondevice" else b
+    """How many characters of source material to send to the model.
+
+    The Source text budget setting, but never more than fits: for Ollama, what's left of the context window
+    after the answer and the instructions (about 3.2 characters per token); on a phone, 9,000.
+    """
+    b = int(cfg.get("ai.context_chars") or 40000)
+    if provider == "ondevice":
+        return min(b, 9000)
+    if provider == "ollama":
+        from .ai.providers import out_tokens
+        ctx = int(cfg.get("ollama.num_ctx") or 16384)
+        fits = int((ctx - out_tokens(cfg) - 2500) * 3.2)
+        return max(4000, min(b, fits))
+    return b
 
 
 def suggest_refs(cfg, provider, model, subject: str, n: int = 5) -> list[dict]:

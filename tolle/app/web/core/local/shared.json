@@ -89,6 +89,13 @@
    "default": "You are Tolle, a Bible study assistant.\n- Base what you write on the Bible text and the SOURCES. Cite a source as a Markdown link when you use it.\n- Never make up quotations, verses or sources. If you are not sure, say so.\n- Use Markdown headings, short paragraphs and lists.\n- Say each thing once. When every section is written, stop."
   },
   {
+   "key": "sources.use",
+   "label": "How to use the study sources",
+   "help": "Added to every study, insight, plan and notes comparison, just before the material gathered from the study sites.",
+   "group": "General",
+   "default": "Make full use of the SOURCES – they are there to be weighed, not skimmed:\n- Compare the commentators: note where they agree, where they differ and why, and how the passage has been read across the centuries (the early Church Fathers, the Reformers and Puritans, 18th–19th century and modern writers). Each is labelled with author, date and kind.\n- Draw on the historical writings, the original-language notes (explain a Greek or Hebrew word only where it helps), dictionary entries and cross references.\n- Use the sermon and pastoral material for illustration and application.\n- Name the author or work when you rely on one, and list every source you used under Sources consulted."
+  },
+  {
    "key": "chat.guide",
    "label": "Bible chat companion",
    "help": "How the AI behaves in Bible chat. Keep the parts about real Bible references, not replacing professional help, and what to do if someone is in crisis.",
@@ -114,7 +121,7 @@
   "ai.model": "",
   "ai.thinking": false,
   "ai.temperature": 0.6,
-  "ai.context_chars": 24000,
+  "ai.context_chars": 40000,
   "ai.max_output_tokens": 8000,
   "ai.auto_continue": 3,
   "ai.prompt_style": "auto",
@@ -139,15 +146,48 @@
     "kind": "text",
     "enabled": true,
     "url": "https://bible-api.com/{ref_q}?translation={translation}",
-    "scope": "passage"
+    "scope": "passage",
+    "weight": 1
    },
    {
     "id": "studylight",
     "name": "StudyLight – commentaries",
-    "kind": "commentary",
+    "kind": "commentaries",
     "enabled": true,
     "url": "https://www.studylight.org/commentary/{book_slug}/{chapter}-{verse}.html",
-    "scope": "verse"
+    "scope": "verse",
+    "parser": "studylight",
+    "weight": 4
+   },
+   {
+    "id": "biblehub",
+    "name": "Bible Hub – commentaries",
+    "kind": "commentaries",
+    "enabled": true,
+    "url": "https://biblehub.com/commentaries/{book_bh}/{chapter}-{verse}.htm",
+    "scope": "verse",
+    "parser": "biblehub",
+    "weight": 3
+   },
+   {
+    "id": "catena",
+    "name": "Catena Bible – Church Fathers",
+    "kind": "historical",
+    "enabled": true,
+    "url": "https://catenabible.com/{book_nab}/{chapter}/{verse}",
+    "scope": "verse",
+    "parser": "catena",
+    "weight": 2
+   },
+   {
+    "id": "interlinear",
+    "name": "Bible Hub – Greek/Hebrew interlinear",
+    "kind": "language",
+    "enabled": true,
+    "url": "https://biblehub.com/interlinear/{book_bh}/{chapter}-{verse}.htm",
+    "scope": "verse",
+    "parser": "interlinear",
+    "weight": 1
    },
    {
     "id": "bst_mhc",
@@ -155,15 +195,17 @@
     "kind": "commentary",
     "enabled": true,
     "url": "https://www.biblestudytools.com/commentaries/matthew-henry-complete/{book_slug}/{chapter}.html",
-    "scope": "chapter"
+    "scope": "chapter",
+    "weight": 1.5
    },
    {
     "id": "enduring_word",
     "name": "Enduring Word – David Guzik",
-    "kind": "commentary",
+    "kind": "pastoral",
     "enabled": true,
     "url": "https://enduringword.com/bible-commentary/{book_slug}-{chapter}/",
-    "scope": "chapter"
+    "scope": "chapter",
+    "weight": 1.5
    },
    {
     "id": "bibleproject",
@@ -171,7 +213,17 @@
     "kind": "overview",
     "enabled": true,
     "url": "https://bibleproject.com/explore/video/{book_slug}/",
-    "scope": "book"
+    "scope": "book",
+    "weight": 0.75
+   },
+   {
+    "id": "easton",
+    "name": "Easton's Bible Dictionary (StudyLight)",
+    "kind": "dictionary",
+    "enabled": true,
+    "url": "https://www.studylight.org/dictionaries/eng/ebd/{topic_letter}/{topic_slug}.html",
+    "scope": "topic",
+    "weight": 0.75
    }
   ],
   "notify.ha_url": "",
@@ -181,6 +233,17 @@
   "ui.theme": "auto",
   "ui.accent": "#0f766e",
   "ui.ai_colour": "#7c3aed",
+  "sources.known": [
+   "bible_text",
+   "studylight",
+   "biblehub",
+   "catena",
+   "interlinear",
+   "bst_mhc",
+   "enduring_word",
+   "bibleproject",
+   "easton"
+  ],
   "tracker.reminder_enabled": false,
   "tracker.reminder_time": "20:00",
   "tracker.timezone": "Europe/London",
@@ -212,15 +275,48 @@
    "kind": "text",
    "enabled": true,
    "url": "https://bible-api.com/{ref_q}?translation={translation}",
-   "scope": "passage"
+   "scope": "passage",
+   "weight": 1
   },
   {
    "id": "studylight",
    "name": "StudyLight – commentaries",
-   "kind": "commentary",
+   "kind": "commentaries",
    "enabled": true,
    "url": "https://www.studylight.org/commentary/{book_slug}/{chapter}-{verse}.html",
-   "scope": "verse"
+   "scope": "verse",
+   "parser": "studylight",
+   "weight": 4
+  },
+  {
+   "id": "biblehub",
+   "name": "Bible Hub – commentaries",
+   "kind": "commentaries",
+   "enabled": true,
+   "url": "https://biblehub.com/commentaries/{book_bh}/{chapter}-{verse}.htm",
+   "scope": "verse",
+   "parser": "biblehub",
+   "weight": 3
+  },
+  {
+   "id": "catena",
+   "name": "Catena Bible – Church Fathers",
+   "kind": "historical",
+   "enabled": true,
+   "url": "https://catenabible.com/{book_nab}/{chapter}/{verse}",
+   "scope": "verse",
+   "parser": "catena",
+   "weight": 2
+  },
+  {
+   "id": "interlinear",
+   "name": "Bible Hub – Greek/Hebrew interlinear",
+   "kind": "language",
+   "enabled": true,
+   "url": "https://biblehub.com/interlinear/{book_bh}/{chapter}-{verse}.htm",
+   "scope": "verse",
+   "parser": "interlinear",
+   "weight": 1
   },
   {
    "id": "bst_mhc",
@@ -228,15 +324,17 @@
    "kind": "commentary",
    "enabled": true,
    "url": "https://www.biblestudytools.com/commentaries/matthew-henry-complete/{book_slug}/{chapter}.html",
-   "scope": "chapter"
+   "scope": "chapter",
+   "weight": 1.5
   },
   {
    "id": "enduring_word",
    "name": "Enduring Word – David Guzik",
-   "kind": "commentary",
+   "kind": "pastoral",
    "enabled": true,
    "url": "https://enduringword.com/bible-commentary/{book_slug}-{chapter}/",
-   "scope": "chapter"
+   "scope": "chapter",
+   "weight": 1.5
   },
   {
    "id": "bibleproject",
@@ -244,7 +342,17 @@
    "kind": "overview",
    "enabled": true,
    "url": "https://bibleproject.com/explore/video/{book_slug}/",
-   "scope": "book"
+   "scope": "book",
+   "weight": 0.75
+  },
+  {
+   "id": "easton",
+   "name": "Easton's Bible Dictionary (StudyLight)",
+   "kind": "dictionary",
+   "enabled": true,
+   "url": "https://www.studylight.org/dictionaries/eng/ebd/{topic_letter}/{topic_slug}.html",
+   "scope": "topic",
+   "weight": 0.75
   }
  ],
  "providers": {
@@ -291,7 +399,9 @@
     "gen",
     "ge",
     "gn"
-   ]
+   ],
+   "bh": "genesis",
+   "nab": "gn"
   },
   {
    "name": "Exodus",
@@ -301,7 +411,9 @@
     "exod",
     "exo",
     "ex"
-   ]
+   ],
+   "bh": "exodus",
+   "nab": "ex"
   },
   {
    "name": "Leviticus",
@@ -311,7 +423,9 @@
     "lev",
     "le",
     "lv"
-   ]
+   ],
+   "bh": "leviticus",
+   "nab": "lv"
   },
   {
    "name": "Numbers",
@@ -321,7 +435,9 @@
     "num",
     "nu",
     "nm"
-   ]
+   ],
+   "bh": "numbers",
+   "nab": "nm"
   },
   {
    "name": "Deuteronomy",
@@ -331,7 +447,9 @@
     "deut",
     "deu",
     "dt"
-   ]
+   ],
+   "bh": "deuteronomy",
+   "nab": "dt"
   },
   {
    "name": "Joshua",
@@ -340,7 +458,9 @@
    "abbrs": [
     "josh",
     "jos"
-   ]
+   ],
+   "bh": "joshua",
+   "nab": "jos"
   },
   {
    "name": "Judges",
@@ -349,7 +469,9 @@
    "abbrs": [
     "judg",
     "jdg"
-   ]
+   ],
+   "bh": "judges",
+   "nab": "jgs"
   },
   {
    "name": "Ruth",
@@ -358,7 +480,9 @@
    "abbrs": [
     "ru",
     "rth"
-   ]
+   ],
+   "bh": "ruth",
+   "nab": "ru"
   },
   {
    "name": "1 Samuel",
@@ -370,7 +494,9 @@
     "1 sa",
     "1sa",
     "i samuel"
-   ]
+   ],
+   "bh": "1_samuel",
+   "nab": "1sm"
   },
   {
    "name": "2 Samuel",
@@ -382,7 +508,9 @@
     "2 sa",
     "2sa",
     "ii samuel"
-   ]
+   ],
+   "bh": "2_samuel",
+   "nab": "2sm"
   },
   {
    "name": "1 Kings",
@@ -394,7 +522,9 @@
     "1 ki",
     "1ki",
     "i kings"
-   ]
+   ],
+   "bh": "1_kings",
+   "nab": "1kgs"
   },
   {
    "name": "2 Kings",
@@ -406,7 +536,9 @@
     "2 ki",
     "2ki",
     "ii kings"
-   ]
+   ],
+   "bh": "2_kings",
+   "nab": "2kgs"
   },
   {
    "name": "1 Chronicles",
@@ -418,7 +550,9 @@
     "1chr",
     "1 ch",
     "i chronicles"
-   ]
+   ],
+   "bh": "1_chronicles",
+   "nab": "1chr"
   },
   {
    "name": "2 Chronicles",
@@ -430,7 +564,9 @@
     "2chr",
     "2 ch",
     "ii chronicles"
-   ]
+   ],
+   "bh": "2_chronicles",
+   "nab": "2chr"
   },
   {
    "name": "Ezra",
@@ -438,7 +574,9 @@
    "chapters": 10,
    "abbrs": [
     "ezr"
-   ]
+   ],
+   "bh": "ezra",
+   "nab": "ezr"
   },
   {
    "name": "Nehemiah",
@@ -447,7 +585,9 @@
    "abbrs": [
     "neh",
     "ne"
-   ]
+   ],
+   "bh": "nehemiah",
+   "nab": "neh"
   },
   {
    "name": "Esther",
@@ -456,7 +596,9 @@
    "abbrs": [
     "esth",
     "est"
-   ]
+   ],
+   "bh": "esther",
+   "nab": "est"
   },
   {
    "name": "Job",
@@ -464,7 +606,9 @@
    "chapters": 42,
    "abbrs": [
     "jb"
-   ]
+   ],
+   "bh": "job",
+   "nab": "jb"
   },
   {
    "name": "Psalms",
@@ -475,7 +619,9 @@
     "ps",
     "psa",
     "pss"
-   ]
+   ],
+   "bh": "psalms",
+   "nab": "ps"
   },
   {
    "name": "Proverbs",
@@ -486,7 +632,9 @@
     "pro",
     "prv",
     "pr"
-   ]
+   ],
+   "bh": "proverbs",
+   "nab": "prv"
   },
   {
    "name": "Ecclesiastes",
@@ -496,7 +644,9 @@
     "eccl",
     "ecc",
     "qoh"
-   ]
+   ],
+   "bh": "ecclesiastes",
+   "nab": "eccl"
   },
   {
    "name": "Song of Solomon",
@@ -507,7 +657,9 @@
     "song",
     "sos",
     "canticles"
-   ]
+   ],
+   "bh": "songs",
+   "nab": "sg"
   },
   {
    "name": "Isaiah",
@@ -516,7 +668,9 @@
    "abbrs": [
     "isa",
     "is"
-   ]
+   ],
+   "bh": "isaiah",
+   "nab": "is"
   },
   {
    "name": "Jeremiah",
@@ -525,7 +679,9 @@
    "abbrs": [
     "jer",
     "je"
-   ]
+   ],
+   "bh": "jeremiah",
+   "nab": "jer"
   },
   {
    "name": "Lamentations",
@@ -534,7 +690,9 @@
    "abbrs": [
     "lam",
     "la"
-   ]
+   ],
+   "bh": "lamentations",
+   "nab": "lam"
   },
   {
    "name": "Ezekiel",
@@ -544,7 +702,9 @@
     "ezek",
     "eze",
     "ezk"
-   ]
+   ],
+   "bh": "ezekiel",
+   "nab": "ez"
   },
   {
    "name": "Daniel",
@@ -554,7 +714,9 @@
     "dan",
     "da",
     "dn"
-   ]
+   ],
+   "bh": "daniel",
+   "nab": "dn"
   },
   {
    "name": "Hosea",
@@ -563,7 +725,9 @@
    "abbrs": [
     "hos",
     "ho"
-   ]
+   ],
+   "bh": "hosea",
+   "nab": "hos"
   },
   {
    "name": "Joel",
@@ -571,7 +735,9 @@
    "chapters": 3,
    "abbrs": [
     "jl"
-   ]
+   ],
+   "bh": "joel",
+   "nab": "jl"
   },
   {
    "name": "Amos",
@@ -579,7 +745,9 @@
    "chapters": 9,
    "abbrs": [
     "am"
-   ]
+   ],
+   "bh": "amos",
+   "nab": "am"
   },
   {
    "name": "Obadiah",
@@ -588,7 +756,9 @@
    "abbrs": [
     "obad",
     "ob"
-   ]
+   ],
+   "bh": "obadiah",
+   "nab": "ob"
   },
   {
    "name": "Jonah",
@@ -597,7 +767,9 @@
    "abbrs": [
     "jon",
     "jnh"
-   ]
+   ],
+   "bh": "jonah",
+   "nab": "jon"
   },
   {
    "name": "Micah",
@@ -606,7 +778,9 @@
    "abbrs": [
     "mic",
     "mi"
-   ]
+   ],
+   "bh": "micah",
+   "nab": "mi"
   },
   {
    "name": "Nahum",
@@ -615,7 +789,9 @@
    "abbrs": [
     "nah",
     "na"
-   ]
+   ],
+   "bh": "nahum",
+   "nab": "na"
   },
   {
    "name": "Habakkuk",
@@ -624,7 +800,9 @@
    "abbrs": [
     "hab",
     "hb"
-   ]
+   ],
+   "bh": "habakkuk",
+   "nab": "hb"
   },
   {
    "name": "Zephaniah",
@@ -633,7 +811,9 @@
    "abbrs": [
     "zeph",
     "zep"
-   ]
+   ],
+   "bh": "zephaniah",
+   "nab": "zep"
   },
   {
    "name": "Haggai",
@@ -642,7 +822,9 @@
    "abbrs": [
     "hag",
     "hg"
-   ]
+   ],
+   "bh": "haggai",
+   "nab": "hg"
   },
   {
    "name": "Zechariah",
@@ -651,7 +833,9 @@
    "abbrs": [
     "zech",
     "zec"
-   ]
+   ],
+   "bh": "zechariah",
+   "nab": "zec"
   },
   {
    "name": "Malachi",
@@ -659,7 +843,9 @@
    "chapters": 4,
    "abbrs": [
     "mal"
-   ]
+   ],
+   "bh": "malachi",
+   "nab": "mal"
   },
   {
    "name": "Matthew",
@@ -669,7 +855,9 @@
     "matt",
     "mat",
     "mt"
-   ]
+   ],
+   "bh": "matthew",
+   "nab": "mt"
   },
   {
    "name": "Mark",
@@ -679,7 +867,9 @@
     "mrk",
     "mk",
     "mr"
-   ]
+   ],
+   "bh": "mark",
+   "nab": "mk"
   },
   {
    "name": "Luke",
@@ -688,7 +878,9 @@
    "abbrs": [
     "luk",
     "lk"
-   ]
+   ],
+   "bh": "luke",
+   "nab": "lk"
   },
   {
    "name": "John",
@@ -697,7 +889,9 @@
    "abbrs": [
     "jhn",
     "jn"
-   ]
+   ],
+   "bh": "john",
+   "nab": "jn"
   },
   {
    "name": "Acts",
@@ -706,7 +900,9 @@
    "abbrs": [
     "act",
     "ac"
-   ]
+   ],
+   "bh": "acts",
+   "nab": "acts"
   },
   {
    "name": "Romans",
@@ -716,7 +912,9 @@
     "rom",
     "ro",
     "rm"
-   ]
+   ],
+   "bh": "romans",
+   "nab": "rom"
   },
   {
    "name": "1 Corinthians",
@@ -727,7 +925,9 @@
     "1cor",
     "1 co",
     "i corinthians"
-   ]
+   ],
+   "bh": "1_corinthians",
+   "nab": "1cor"
   },
   {
    "name": "2 Corinthians",
@@ -738,7 +938,9 @@
     "2cor",
     "2 co",
     "ii corinthians"
-   ]
+   ],
+   "bh": "2_corinthians",
+   "nab": "2cor"
   },
   {
    "name": "Galatians",
@@ -747,7 +949,9 @@
    "abbrs": [
     "gal",
     "ga"
-   ]
+   ],
+   "bh": "galatians",
+   "nab": "gal"
   },
   {
    "name": "Ephesians",
@@ -756,7 +960,9 @@
    "abbrs": [
     "eph",
     "ephes"
-   ]
+   ],
+   "bh": "ephesians",
+   "nab": "eph"
   },
   {
    "name": "Philippians",
@@ -766,7 +972,9 @@
     "phil",
     "php",
     "pp"
-   ]
+   ],
+   "bh": "philippians",
+   "nab": "phil"
   },
   {
    "name": "Colossians",
@@ -774,7 +982,9 @@
    "chapters": 4,
    "abbrs": [
     "col"
-   ]
+   ],
+   "bh": "colossians",
+   "nab": "col"
   },
   {
    "name": "1 Thessalonians",
@@ -785,7 +995,9 @@
     "1thess",
     "1 th",
     "i thessalonians"
-   ]
+   ],
+   "bh": "1_thessalonians",
+   "nab": "1thes"
   },
   {
    "name": "2 Thessalonians",
@@ -796,7 +1008,9 @@
     "2thess",
     "2 th",
     "ii thessalonians"
-   ]
+   ],
+   "bh": "2_thessalonians",
+   "nab": "2thes"
   },
   {
    "name": "1 Timothy",
@@ -807,7 +1021,9 @@
     "1tim",
     "1 ti",
     "i timothy"
-   ]
+   ],
+   "bh": "1_timothy",
+   "nab": "1tm"
   },
   {
    "name": "2 Timothy",
@@ -818,7 +1034,9 @@
     "2tim",
     "2 ti",
     "ii timothy"
-   ]
+   ],
+   "bh": "2_timothy",
+   "nab": "2tm"
   },
   {
    "name": "Titus",
@@ -826,7 +1044,9 @@
    "chapters": 3,
    "abbrs": [
     "tit"
-   ]
+   ],
+   "bh": "titus",
+   "nab": "ti"
   },
   {
    "name": "Philemon",
@@ -835,7 +1055,9 @@
    "abbrs": [
     "philem",
     "phm"
-   ]
+   ],
+   "bh": "philemon",
+   "nab": "phlm"
   },
   {
    "name": "Hebrews",
@@ -843,7 +1065,9 @@
    "chapters": 13,
    "abbrs": [
     "heb"
-   ]
+   ],
+   "bh": "hebrews",
+   "nab": "heb"
   },
   {
    "name": "James",
@@ -852,7 +1076,9 @@
    "abbrs": [
     "jas",
     "jm"
-   ]
+   ],
+   "bh": "james",
+   "nab": "jas"
   },
   {
    "name": "1 Peter",
@@ -863,7 +1089,9 @@
     "1pet",
     "1 pe",
     "i peter"
-   ]
+   ],
+   "bh": "1_peter",
+   "nab": "1pt"
   },
   {
    "name": "2 Peter",
@@ -874,7 +1102,9 @@
     "2pet",
     "2 pe",
     "ii peter"
-   ]
+   ],
+   "bh": "2_peter",
+   "nab": "2pt"
   },
   {
    "name": "1 John",
@@ -885,7 +1115,9 @@
     "1jn",
     "1 jhn",
     "i john"
-   ]
+   ],
+   "bh": "1_john",
+   "nab": "1jn"
   },
   {
    "name": "2 John",
@@ -895,7 +1127,9 @@
     "2 jn",
     "2jn",
     "ii john"
-   ]
+   ],
+   "bh": "2_john",
+   "nab": "2jn"
   },
   {
    "name": "3 John",
@@ -905,7 +1139,9 @@
     "3 jn",
     "3jn",
     "iii john"
-   ]
+   ],
+   "bh": "3_john",
+   "nab": "3jn"
   },
   {
    "name": "Jude",
@@ -913,7 +1149,9 @@
    "chapters": 1,
    "abbrs": [
     "jud"
-   ]
+   ],
+   "bh": "jude",
+   "nab": "jude"
   },
   {
    "name": "Revelation",
@@ -924,7 +1162,9 @@
     "re",
     "revelations",
     "apocalypse"
-   ]
+   ],
+   "bh": "revelation",
+   "nab": "rv"
   }
  ],
  "text": {

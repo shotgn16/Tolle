@@ -28,6 +28,12 @@ REF_TEXTS = ["John 3:16-18; Rom 8", "1 Cor 13:4-7 and Ps 23", "Gen 1-2, Rev 21:1
 BUILDER = {"audience": "youth", "size": "8", "duration": "45", "sessions": 2, "passages": "Luke 15",
            "theme": "grace", "notes": "new believers", "format": "", "level": "study"}
 
+from server.core import settings as core_settings, source_parsers, sources as core_sources  # noqa: E402
+
+PAGES = json.loads((Path(__file__).resolve().parents[1] / "fixtures" / "source_pages.json").read_text())
+parsed = {k: source_parsers.PARSERS[k.split("_")[0]](v) for k, v in PAGES.items()}
+mixed = parsed["studylight"] + parsed["biblehub"] + parsed["catena"]
+
 out = {
     "system": core.system_base("Baptist"),
     "passage": research.passage_study("John 3:16, Romans 8", "love", "deep", "SRC", "sermon", "short"),
@@ -40,5 +46,14 @@ out = {
     "refs": {t: parse_refs(t) for t in REF_TEXTS},
     "template": template_vars(parse_refs("1 John 4:7-12")[0], "kjv"),
     "builder_params": BUILDER,
+    "pages": PAGES,
+    "parsed": parsed,
+    "picked": source_parsers.pick(mixed, 3000),
+    "plan": [[s["id"], u, label] for s, u, label in core_sources.plan(
+        parse_refs("Song of Solomon 2:4; 1 Corinthians 13:4"), core_settings.DEFAULT_SOURCES, "web", ["love", "work and rest"])],
+    "citations": [list(source_parsers._citation(c)) for c in [
+        'Clarke, Adam. "Commentary on John 3:16". "The Adam Clarke Commentary". 1832.',
+        'Exell, Joseph S. "Commentary on "John 3:16". The Biblical Illustrator. 1905-1909. New York.',
+        'Haydock, George Leo. "Commentary on John 3". "George Haydock\'s Catholic Bible Commentary". 1859.']],
 }
 print(json.dumps(out, ensure_ascii=False))

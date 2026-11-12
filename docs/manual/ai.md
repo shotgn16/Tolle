@@ -70,7 +70,7 @@ If it keeps happening:
 
 ## Source text budget
 
-Each study sends the Bible text and commentary excerpts to the model. **Settings → AI → Source text budget** limits how many characters. Small models (or small context windows) work better with 8,000–12,000; cloud models are fine with 24,000–60,000.
+Each study sends the Bible text and material from the study sites to the model ([what it reads](study-sites.md)). **Settings → AI → Source text budget** limits how many characters (40,000 by default). The more room, the more commentators, historical writings and pastoral material the AI can weigh. With Ollama, Tolle also keeps within the context window. Small models work better with about 6,000. Cloud models are fine with 40,000–80,000.
 
 ## Privacy
 

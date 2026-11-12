@@ -29,9 +29,16 @@ export function aiChoice(cfg, params) {
 }
 export const level = (params) => (settings.LEVELS[params.level] ? params.level : 'study');
 export const levelName = (params) => settings.LEVELS[level(params)];
+/** Source text to send: the setting, but never more than fits the model (same rules as the server). */
 export function budget(cfg, provider) {
-  const b = parseInt(cfg['ai.context_chars'], 10) || 24000;
-  return provider === 'ondevice' ? Math.min(b, 9000) : b;
+  const b = parseInt(cfg['ai.context_chars'], 10) || 40000;
+  if (provider === 'ondevice') return Math.min(b, 9000);
+  if (provider === 'ollama') {
+    const ctx = parseInt(cfg['ollama.num_ctx'], 10) || 16384;
+    const fits = Math.floor((ctx - outTokens(cfg) - 2500) * 3.2);
+    return Math.max(4000, Math.min(b, fits));
+  }
+  return b;
 }
 export async function suggestRefs(cfg, provider, model, subject, n = 5) {
   if (provider === 'ondevice') return [];

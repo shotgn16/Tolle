@@ -19,6 +19,8 @@ export function compact(cfg) {
   const style = cfg['ai.prompt_style'] || 'auto';   // "auto": compact for models running on the device
   return style === 'compact' || (style === 'auto' && cfg['ai.provider'] === 'ondevice');
 }
+const COMPACT_SOURCES = 'Use the SOURCES above for this task: compare what the different commentators say, and use the historical, '
+  + 'original-language and pastoral material too. Name the sources you use.';
 const COMPACT_FOCUS = 'Keep it focused: write every section, briefly and clearly, rather than a few at length. Write the answer now.';
 const SOURCES_RE = /\n*<SOURCES>\n([\s\S]*?)\n<\/SOURCES>\s*$/;
 
@@ -28,11 +30,12 @@ export function adaptMessages(cfg, messages) {
   const last = messages[messages.length - 1].content;
   const m = last.match(SOURCES_RE);
   if (!m) return messages;
-  const task = last.slice(0, m.index).trimEnd();
+  // The long guidance on using the sources becomes one line: small models do better with less to follow.
+  const task = last.slice(0, m.index).replace(text('sources.use'), '').trimEnd();
   const src = m[1].trim();
-  const content = (src ? `<SOURCES>\n${src}\n</SOURCES>\n\nUse the SOURCES above for this task.\n\n` : '') + `${task}\n\n${COMPACT_FOCUS}`;
+  const content = (src ? `<SOURCES>\n${src}\n</SOURCES>\n\n${COMPACT_SOURCES}\n\n` : '') + `${task}\n\n${COMPACT_FOCUS}`;
   return [...messages.slice(0, -1), { ...messages[messages.length - 1], content }];
 }
 
-export const sourcesBlock = (src) => `\n\n<SOURCES>\n${src}\n</SOURCES>`;
+export const sourcesBlock = (src) => `\n\n${text('sources.use')}\n\n<SOURCES>\n${src}\n</SOURCES>`;
 export const transcribeImage = () => SHARED.text.transcribe;

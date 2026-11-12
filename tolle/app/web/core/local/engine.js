@@ -19,7 +19,7 @@ import { AIError, listModels, ONDEVICE_MODELS, PROVIDERS } from './ai.js';
 import { booksPayload, parseRefs } from './bible.js';
 import * as jobs from './jobs.js';
 import * as settings from './settings.js';
-import { gather } from './sources.js';
+import { gather, preview } from './sources.js';
 import { exportAll, flush, fromB64, importAll, init as initStore, toB64 } from './store.js';
 
 const routes = [];
@@ -91,10 +91,13 @@ function coreRoutes() {
   r('GET', 'bible/books', () => booksPayload());
   r('GET', 'bible/parse', ({ query }) => parseRefs(query.text || ''));
   r('POST', 'sources/test', async ({ body }) => {
-    const refs = parseRefs(body.ref || 'John 3:16');
-    if (!refs.length) throw new ApiError(400, 'Enter a valid reference.');
-    const res = await gather(refs.slice(0, 1), [{ ...body.source, enabled: true }], settings.get('bible.translation'), 4000);
-    return res.map((x) => ({ url: x.url, ok: x.ok, preview: x.text.slice(0, 500) }));
+    const src = { ...body.source, enabled: true };
+    const topic = src.scope === 'topic';
+    const ref = body.ref || (topic ? 'love' : 'John 3:16');
+    const refs = topic ? [] : parseRefs(ref);
+    if (!topic && !refs.length) throw new ApiError(400, 'Enter a valid reference.');
+    const res = await gather(refs.slice(0, 1), [src], settings.get('bible.translation'), 12000, () => {}, [ref]);
+    return res.map((x) => ({ url: x.url, ok: x.ok, preview: preview(x) }));
   });
 
   // Backups: everything on the device, encrypted with a password the user chooses.

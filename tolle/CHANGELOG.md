@@ -22,6 +22,21 @@
   settings on computers with less than 20 GB of memory.
 - New **Repetition penalty** setting for Ollama.
 
+**Every source, every voice**
+- Big study pages are now split into their separate works. StudyLight's ~40 commentaries and Bible Hub's ~15
+  are each labelled with author, date and kind (early church, Reformation & Puritan, 1700s–1800s, original
+  languages, sermons & pastoral, modern). The space is shared out so every kind is heard, not just the
+  first commentator on the page.
+- New sources: Bible Hub commentaries (Pulpit Commentary, MacLaren, Spurgeon's *Treasury of David*,
+  Keil & Delitzsch…), the Church Fathers verse by verse (Catena Bible), the Greek/Hebrew interlinear with
+  Strong's numbers, and Easton's Bible Dictionary for topics. Existing users get them automatically.
+- The AI is asked to compare the commentators across the centuries and to use the historical,
+  original-language and pastoral material, naming its sources. This guidance can be edited.
+- Sites are read six at a time, so studies with more sources don't take longer. The source budget is now
+  40,000 characters, kept within Ollama's context window automatically.
+- Settings → Sources: choose what each source looks up (passage, verse, chapter, book or topic word),
+  test shows how many works were found, and "Add back built-in sources".
+
 **Appearance**
 - New **Settings → Appearance**: light, dark or match the device; choose the main colour and the AI colour
   from presets or any colour. A warning appears if the two are too alike. Shows instantly when the app opens.
