@@ -170,3 +170,14 @@ def test_device_engine_data_up_to_date():
     root = Path(__file__).resolve().parents[1]
     r = subprocess.run([sys.executable, str(root / "scripts" / "export-shared.py"), "--check"], capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_app_files_are_never_stale():
+    """After an update the browser must fetch the new screens (e.g. a new feature), not reuse old ones."""
+    from fastapi.testclient import TestClient
+    from server.main import app
+    with TestClient(app) as c:
+        r = c.get("/features/index.js")
+        assert r.status_code == 200 and r.headers["cache-control"] == "no-cache"
+        assert "chat" in r.text
+        assert c.get("/", headers={}).headers["cache-control"] == "no-cache"

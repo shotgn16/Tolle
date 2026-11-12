@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1
+
+- Fix: after an update, browsers (and the Home Assistant app) could keep showing the previous version's
+  screens for a while, so new parts such as Bible chat didn't appear. The app's files are now always
+  checked for a newer copy.
+
 ## 0.4.0
 
 **Answers are no longer cut off**

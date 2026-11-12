@@ -52,6 +52,10 @@ def create_app() -> FastAPI:
         resp.headers.setdefault("Content-Security-Policy", CSP)
         if request.url.path.startswith("/api/"):
             resp.headers["Cache-Control"] = "no-store"
+        else:
+            # The app's files: always check for a newer copy (a quick 304 when nothing changed), so an update
+            # shows up straight away instead of the browser running yesterday's screens.
+            resp.headers.setdefault("Cache-Control", "no-cache")
         return resp
 
     @app.exception_handler(AIError)
