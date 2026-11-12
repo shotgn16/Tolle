@@ -4,6 +4,7 @@
 
 | Problem | What to do |
 |---|---|
+| After an update, a new part (e.g. Bible chat) is missing | From 0.4.2, Tolle always loads the updated screens. For older versions: hard-refresh the page (**Ctrl+Shift+R**, or **Cmd+Shift+R** on a Mac), or in the Home Assistant app **Settings → Companion app → Troubleshooting → Reset frontend cache**. |
 | Windows: "Windows protected your PC" | Click **More info → Run anyway**. Tolle isn't signed with a paid Microsoft certificate yet. |
 | Mac: "Apple could not verify Tolle…" | **System Settings → Privacy & Security → Open Anyway**. See [Mac](install-macos.md#3-open-it-the-first-time). |
 | Mac: "Tolle is damaged and can't be opened" | In Terminal: `xattr -cr /Applications/Tolle.app`, then open it again. |

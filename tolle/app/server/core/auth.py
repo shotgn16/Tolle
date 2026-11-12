@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from fastapi import Depends, HTTPException, Request
 
 from . import db
-from .config import SESSION_DAYS
+from .config import IS_ADDON, SESSION_DAYS
 from .crypto import enc, hash_password, new_token, token_hash, verify_password
 
 
@@ -104,14 +104,60 @@ def login(username: str, password: str, request: Request, device_id: str | None)
         _failures[key].append(time.time())
         raise HTTPException(401, "Incorrect username or password.")
     _failures.pop(key, None)
+    link_ha_user(request, row["id"])
+    return new_session(row["id"], request, device_id)
+
+
+def new_session(user_id: int, request: Request, device_id: str | None) -> str:
     token = new_token()
     now = time.time()
     db.ex(
         "INSERT INTO sessions(token_hash,user_id,device_id,created_at,expires_at) VALUES(?,?,?,?,?)",
-        (token_hash(token), row["id"], device_id, now, now + SESSION_DAYS * 86400),
+        (token_hash(token), user_id, device_id, now, now + SESSION_DAYS * 86400),
     )
-    touch_device(row["id"], request, device_id)
+    touch_device(user_id, request, device_id)
     return token
+
+
+# ---------- Home Assistant sign-in (add-on) ----------
+# Opened from the Home Assistant sidebar, every request comes through the Supervisor's ingress proxy, which
+# adds the signed-in Home Assistant user. Those headers are trusted ONLY from that proxy's fixed address –
+# never from the optional network port, where anyone could send them.
+INGRESS_PROXY = "172.30.32.2"
+
+
+def ingress_user(request: Request) -> dict | None:
+    """The Home Assistant user behind this request, if it really came through Home Assistant."""
+    if not IS_ADDON or not request.client or request.client.host != INGRESS_PROXY:
+        return None
+    uid = (request.headers.get("x-remote-user-id") or "").strip()
+    if not uid:
+        return None
+    name = (request.headers.get("x-remote-user-display-name") or request.headers.get("x-remote-user-name") or "").strip()
+    return {"id": uid, "name": name}
+
+
+def link_ha_user(request: Request, user_id: int) -> None:
+    """Remember which Tolle account this Home Assistant user signed in to, so next time it's automatic."""
+    hu = ingress_user(request)
+    if hu:
+        db.ex("INSERT INTO ha_links(ha_user_hash,user_id,created_at) VALUES(?,?,?) "
+              "ON CONFLICT(ha_user_hash) DO UPDATE SET user_id=excluded.user_id", (token_hash(hu["id"]), user_id, time.time()))
+
+
+def unlink_ha_user(request: Request) -> None:
+    hu = ingress_user(request)
+    if hu:
+        db.ex("DELETE FROM ha_links WHERE ha_user_hash=?", (token_hash(hu["id"]),))
+
+
+def ha_linked_user(request: Request) -> int | None:
+    hu = ingress_user(request)
+    if not hu:
+        return None
+    row = db.q1("SELECT l.user_id FROM ha_links l JOIN users u ON u.id=l.user_id WHERE l.ha_user_hash=?",
+                (token_hash(hu["id"]),))
+    return row["user_id"] if row else None
 
 
 def logout(token: str) -> None:
@@ -143,8 +189,12 @@ def current_user(request: Request) -> User:
         "JOIN users u ON u.id=s.user_id WHERE s.token_hash=?",
         (token_hash(token),),
     )
-    if not row or row["expires_at"] < time.time():
+    now = time.time()
+    if not row or row["expires_at"] < now:
         raise HTTPException(401, "Session expired. Please sign in again.")
+    # Stay signed in while you use Tolle: renew once the sign-in is past half its life.
+    if row["expires_at"] - now < SESSION_DAYS * 86400 / 2:
+        db.ex("UPDATE sessions SET expires_at=? WHERE token_hash=?", (now + SESSION_DAYS * 86400, token_hash(token)))
     device_id = request.headers.get("x-device-id")
     touch_device(row["user_id"], request, device_id)
     return User(row["user_id"], row["username"], bool(row["is_admin"]), device_id)

@@ -98,7 +98,7 @@ try:
 except ValueError:
     SERVER_DEFAULTS = {}
 
-SESSION_DAYS = 30
+SESSION_DAYS = 90   # renewed while in use, so you stay signed in
 MAX_UPLOAD_MB = int(_opt("TOLLE_MAX_UPLOAD_MB", "max_upload_mb", 50))
 
 # Origins allowed to call the API cross-origin (the mobile and desktop apps).

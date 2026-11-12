@@ -175,9 +175,43 @@ def test_device_engine_data_up_to_date():
 def test_app_files_are_never_stale():
     """After an update the browser must fetch the new screens (e.g. a new feature), not reuse old ones."""
     from fastapi.testclient import TestClient
-    from server.main import app
+    from server.main import BUILD, app
     with TestClient(app) as c:
-        r = c.get("/features/index.js")
-        assert r.status_code == 200 and r.headers["cache-control"] == "no-cache"
-        assert "chat" in r.text
-        assert c.get("/", headers={}).headers["cache-control"] == "no-cache"
+        page = c.get("/")
+        assert page.headers["cache-control"] == "no-cache"
+        assert f'src="v/{BUILD}/core/app.js"' in page.text and f'href="v/{BUILD}/css/app.css"' in page.text
+        js = c.get(f"/v/{BUILD}/features/index.js")
+        assert js.status_code == 200 and "chat" in js.text and "immutable" in js.headers["cache-control"]
+        assert c.get("/v/old-build/core/app.js").headers["cache-control"] == "no-cache"
+        assert c.get(f"/v/{BUILD}/../server/main.py").status_code == 404
+        assert c.get("/features/index.js").headers["cache-control"] == "no-cache"
+
+
+def test_home_assistant_sign_in(monkeypatch):
+    """Opened from the Home Assistant sidebar: sign in once, then automatically – but only via the ingress proxy."""
+    from fastapi.testclient import TestClient
+    from server.core import auth
+    from server.main import app
+    ha = {"X-Remote-User-Id": "ha-user-123", "X-Remote-User-Display-Name": "Jack"}
+    with TestClient(app) as c:
+        # Not the add-on, or not through the proxy: the headers mean nothing.
+        assert c.post("/api/auth/home-assistant", headers=ha).status_code == 404
+        monkeypatch.setattr(auth, "IS_ADDON", True)
+        assert c.post("/api/auth/home-assistant", headers=ha).status_code == 404       # wrong address
+        monkeypatch.setattr(auth, "INGRESS_PROXY", "testclient")
+        r = c.post("/api/auth/home-assistant", headers=ha).json()
+        assert r == {"linked": False, "ha_user": "Jack"}
+        if c.get("/api/auth/status").json()["needs_setup"]:
+            c.post("/api/auth/setup", json={"username": "hauser", "password": "password123"}, headers=ha)
+            user, pw = "hauser", "password123"
+        else:
+            c.post("/api/auth/setup", json={"username": "x", "password": "y"})
+            auth.create_user("hauser2", "password123")
+            user, pw = "hauser2", "password123"
+        c.post("/api/auth/login", json={"username": user, "password": pw}, headers=ha)          # links
+        r = c.post("/api/auth/home-assistant", headers=ha).json()
+        assert r["linked"] and c.get("/api/me", headers={"Authorization": f"Bearer {r['token']}"}).json()["username"] == user
+        other = {"X-Remote-User-Id": "someone-else"}
+        assert c.post("/api/auth/home-assistant", headers=other).json()["linked"] is False      # only that HA user
+        c.post("/api/auth/logout", headers={**ha, "Authorization": f"Bearer {r['token']}"})
+        assert c.post("/api/auth/home-assistant", headers=ha).json()["linked"] is False          # signing out unlinks

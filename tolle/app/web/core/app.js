@@ -159,6 +159,18 @@ function serverScreen() {
       h('a', { href: '#', onclick: (e) => { e.preventDefault(); LS_clearMode(); welcomeScreen(); } }, 'Use this device on its own instead')))));
 }
 
+// Opened from the Home Assistant sidebar: sign in with the Home Assistant account (once it's linked).
+let haUser = null;
+async function homeAssistantSignIn() {
+  if (isNative) return false;
+  try {
+    const r = await post('api/auth/home-assistant', {});
+    if (r.linked && r.token) { token.set(r.token); return true; }
+    haUser = r.ha_user || 'your Home Assistant account';
+  } catch { /* not in Home Assistant */ }
+  return false;
+}
+
 async function authScreen() {
   showShell(false);
   let status;
@@ -185,6 +197,7 @@ async function authScreen() {
       h('div', {}, h('strong', {}, BRAND.name), h('small', { class: 'motto', title: BRAND.mottoTitle }, h('em', {}, BRAND.mottoLead), BRAND.mottoRest))),
     h('p', { style: { textAlign: 'center', fontWeight: 600, margin: '0 0 18px' } }, setup ? 'Create your account' : 'Sign in'),
     setup ? h('p', {}, 'Welcome! Create the first account. It becomes the administrator. Everything you store is encrypted.') : null,
+    haUser ? h('p', { class: 'hint', style: { textAlign: 'center' } }, `Do this once: Tolle will then sign ${haUser} in automatically whenever you open it from Home Assistant.`) : null,
     field('Username', user), field('Password', pass, setup ? 'At least 8 characters.' : null),
     setup ? field('Confirm password', pass2) : null,
     h('button', { class: 'primary', type: 'submit', style: { width: '100%' } }, setup ? 'Create account' : 'Sign in'),
@@ -235,13 +248,17 @@ async function start() {
   if (isNative && !mode.get()) return welcomeScreen();
   if (!mode.device()) {
     if (isNative && !serverUrl()) return serverScreen();
-    if (!token.get()) return authScreen();
+    if (!token.get() && !(await homeAssistantSignIn())) return authScreen();
   }
   try {
     state.me = await get('api/me');
     await loadSettings(true);
   } catch (e) {
-    if (e.status === 401 && !mode.device()) return authScreen();
+    if (e.status === 401 && !mode.device()) {
+      token.set(null);
+      if (await homeAssistantSignIn()) return start();
+      return authScreen();
+    }
     if (isNative && !mode.device()) return serverScreen();
     view.replaceChildren(h('div', { class: 'card' }, e.message));
     return;

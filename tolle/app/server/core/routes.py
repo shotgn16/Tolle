@@ -56,6 +56,18 @@ def auth_status():
             "mode": RUN_MODE}
 
 
+@router.post("/auth/home-assistant")
+def auth_home_assistant(request: Request):
+    """Opened from the Home Assistant sidebar: sign in as the Tolle account linked to this Home Assistant user."""
+    hu = auth.ingress_user(request)
+    if not hu:
+        raise HTTPException(404, "Not opened from Home Assistant.")
+    uid = auth.ha_linked_user(request)
+    if not uid:
+        return {"linked": False, "ha_user": hu["name"]}
+    return {"linked": True, "token": auth.new_session(uid, request, request.headers.get("x-device-id"))}
+
+
 @router.post("/auth/setup")
 def auth_setup(request: Request, body: dict = Body(...)):
     if auth.user_count() > 0:
@@ -74,6 +86,7 @@ def auth_login(request: Request, body: dict = Body(...)):
 @router.post("/auth/logout")
 def auth_logout(request: Request, user: User = Depends(current_user)):
     auth.logout(request.headers.get("authorization", "")[7:])
+    auth.unlink_ha_user(request)   # signing out in Home Assistant means "don't sign me in automatically"
     return {"ok": True}
 
 

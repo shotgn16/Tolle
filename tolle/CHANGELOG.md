@@ -1,10 +1,15 @@
 # Changelog
 
-## 0.4.1
+## 0.4.2
 
-- Fix: after an update, browsers (and the Home Assistant app) could keep showing the previous version's
-  screens for a while, so new parts such as Bible chat didn't appear. The app's files are now always
-  checked for a newer copy.
+- **Updates always show up.** The app's screens now load from an address that changes with every version,
+  so a browser or the Home Assistant app can never keep running an old copy. In 0.4.0 this could hide
+  Bible chat until the cache was cleared.
+- **Home Assistant signs you in.** Opened from the Home Assistant sidebar, Tolle remembers your Home
+  Assistant user after you sign in once, then signs you in automatically: after restarts, updates, a
+  cleared cache or on a new phone. This only trusts Home Assistant's own internal connection, never the
+  open network port.
+- **Stay signed in.** Sign-ins now renew themselves while you use Tolle, instead of running out after 30 days.
 
 ## 0.4.0
 

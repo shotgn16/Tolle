@@ -22,6 +22,12 @@ The assistant adds the Tolle repository and installs and starts the app. It also
 3. Click **Start**, and turn on **Show in sidebar**. *Start on boot* and *Watchdog* are good to turn on too.
 4. Click **Tolle** in the sidebar and create your account. The first account is the administrator.
 
+## Signing in
+
+Open Tolle from the Home Assistant sidebar and sign in to your Tolle account **once**. Tolle remembers which Home Assistant user you are, and from then on signs you in automatically whenever you open it from Home Assistant: after a restart, an update, a cleared cache or on a new phone. Each Home Assistant user is linked to their own Tolle account. **Sign out** in Tolle (Settings → Account) turns this off for that Home Assistant user until they sign in again.
+
+This only works through the Home Assistant sidebar. Anyone connecting to port 8099 directly (the phone apps, the desktop app) still signs in with a username and password.
+
 ## Phones and other computers
 
 The sidebar panel works anywhere you can use Home Assistant, including the Home Assistant Companion app.

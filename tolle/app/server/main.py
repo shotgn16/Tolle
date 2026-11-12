@@ -3,11 +3,13 @@
     from server.main import app          # ready-made app (used by uvicorn and the tests)
     from server.main import create_app   # build a fresh one
 """
+import hashlib
+import re
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import features
@@ -15,6 +17,26 @@ from .core import db, jobs, scheduler, settings
 from .core.ai.providers import AIError
 from .core.config import APP_NAME, CORS_ORIGINS, VERSION, WEB_DIR
 from .core.routes import router as core_router
+
+
+def _build_id() -> str:
+    """Changes whenever the app's files change: the version plus a fingerprint of the web folder."""
+    h = hashlib.sha1()
+    for f in sorted(WEB_DIR.rglob("*")):
+        if f.is_file():
+            st = f.stat()
+            h.update(f"{f.relative_to(WEB_DIR)}:{st.st_size}:{int(st.st_mtime)}".encode())
+    return f"{VERSION}-{h.hexdigest()[:8]}"
+
+
+BUILD = _build_id()
+_ASSETS = re.compile(r'((?:src|href)=")(css/|vendor/|core/)')
+
+
+def _index_html() -> str:
+    """index.html with its scripts and styles under v/<build>/, so after an update the browser (or the
+    Home Assistant app) can't keep running the previous version's screens from its cache."""
+    return _ASSETS.sub(rf"\1v/{BUILD}/\2", (WEB_DIR / "index.html").read_text(encoding="utf-8"))
 
 CSP = ("default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://esm.run https://cdn.jsdelivr.net; "
        "connect-src 'self' https:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; "
@@ -68,8 +90,18 @@ def create_app() -> FastAPI:
             app.include_router(f.router, dependencies=[Depends(features.require(f.id))])
 
     @app.get("/", include_in_schema=False)
+    @app.get("/index.html", include_in_schema=False)
     def index():
-        return FileResponse(WEB_DIR / "index.html", headers={"Cache-Control": "no-cache"})
+        return HTMLResponse(_index_html(), headers={"Cache-Control": "no-cache"})
+
+    @app.get("/v/{build}/{path:path}", include_in_schema=False)
+    def versioned(build: str, path: str):
+        """The app's files for one build. The address changes with every update, so they can be cached for good."""
+        f = (WEB_DIR / path).resolve()
+        if not f.is_file() or WEB_DIR.resolve() not in f.parents:
+            return JSONResponse({"detail": "Not found"}, status_code=404)
+        cache = "public, max-age=31536000, immutable" if build == BUILD else "no-cache"
+        return FileResponse(f, headers={"Cache-Control": cache})
 
     app.mount("/", StaticFiles(directory=WEB_DIR), name="web")
     return app
