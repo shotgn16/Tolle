@@ -5,9 +5,9 @@
 //   finish({ params, meta, text, thinking, model })  -> result          (async)
 // With the on-device model the job pauses at status "client"; the app runs the model and posts the
 // answer back to ai/jobs/{id}/complete – exactly as with a server.
-import { AIError, chat } from './ai.js';
+import { AIError, chat, continueRounds, outTokens } from './ai.js';
 import { parseRefs } from './bible.js';
-import { systemBase } from './prompts.js';
+import { adaptMessages, compact, systemBase } from './prompts.js';
 import { clean } from './repetition.js';
 import * as settings from './settings.js';
 import { db } from './store.js';
@@ -43,7 +43,7 @@ export async function suggestRefs(cfg, provider, model, subject, n = 5) {
     return parseRefs(out.text, n);
   } catch { return []; }
 }
-export const systemMessage = (cfg) => ({ role: 'system', content: systemBase(cfg['study.perspective'] || '') });
+export const systemMessage = (cfg) => ({ role: 'system', content: systemBase(cfg['study.perspective'] || '', compact(cfg)) });
 export const modelMeta = (meta, params, model, thinking) => ({
   ...meta, model, provider: params._provider, level: params.level, thinking: thinking ? thinking.slice(0, 20000) : '',
 });
@@ -86,13 +86,16 @@ async function run(id, kind, params) {
     const cfg = settings.all();
     const [provider, model, thinking] = aiChoice(cfg, params);
     Object.assign(params, { _provider: provider, _model: model, _thinking: thinking });
-    const { messages, images = null, meta = {} } = await prepare({ params, cfg, progress: (m) => set(id, { progress: m }) });
+    const prepared = await prepare({ params, cfg, progress: (m) => set(id, { progress: m }) });
+    const { images = null, meta = {} } = prepared;
+    const messages = adaptMessages(cfg, prepared.messages);
     if (provider === 'ondevice') {
-      set(id, { status: 'client', progress: 'Waiting for on-device model…', params, meta, client: { messages, model, thinking } });
+      set(id, { status: 'client', progress: 'Waiting for on-device model…', params, meta,
+        client: { messages, model, thinking, max_tokens: outTokens(cfg), auto_continue: continueRounds(cfg) } });
       return;
     }
     set(id, { progress: thinking ? `Thinking with ${model}…` : `Writing with ${model}…` });
-    const out = await chat(cfg, provider, model, messages, { images, thinking, temperature: parseFloat(cfg['ai.temperature']) || 0.6 });
+    const out = await chat(cfg, provider, model, messages, { images, thinking, temperature: parseFloat(cfg['ai.temperature']) || 0.6, progress: (m) => set(id, { progress: m }) });
     if (!out.text) throw new AIError('The model returned an empty answer.');
     const result = await finish({ params, meta, text: out.text, thinking: out.thinking, model });
     set(id, { status: 'done', progress: 'Done', result });
@@ -113,6 +116,7 @@ function subject(j) {
   const p = j.params || {};
   for (const k of SUBJECT_KEYS) if (String(p[k] || '').trim()) return String(p[k]).trim().slice(0, 120);
   if (p.study_id) return (db.get('studies', Number(p.study_id))?.title || '').slice(0, 120);
+  if (p.thread_id) return (db.get('chat_threads', Number(p.thread_id))?.title || '').slice(0, 120);
   if (p.session_id) return (db.get('calling_sessions', Number(p.session_id))?.title || '').slice(0, 120);
   if (p.file_id) return (db.get('files', Number(p.file_id))?.filename || '').slice(0, 120);
   return '';
@@ -121,6 +125,7 @@ function subject(j) {
 function link(j) {
   const r = j.result || {};
   const p = j.params || {};
+  if (r.thread_id || j.kind.startsWith('chat')) { const tid = r.thread_id || p.thread_id; return tid ? `#/chat/${tid}` : ''; }
   if (r.session_id || j.kind.startsWith('calling')) { const sid = r.session_id || p.session_id; return sid ? `#/calling/${sid}` : ''; }
   const sid = r.study_id || p.study_id;
   return sid ? `#/study/${sid}` : '';

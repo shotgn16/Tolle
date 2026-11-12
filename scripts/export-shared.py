@@ -34,6 +34,7 @@ def build() -> dict:
     loaded = features.load()            # registers every feature's instructions and default settings
     from server.features.builder import prompts as builder
     from server.features.calling import prompts as calling
+    from server.features.chat import prompts as chat
     from server.features.insights import prompts as insights
     from server.features.research import prompts as research
 
@@ -62,6 +63,7 @@ def build() -> dict:
         "purposes": research.PURPOSES,
         "audiences": builder.AUDIENCES,
         "insight_modes": insights.INSIGHT_MODES,
+        "chat_starters": chat.STARTERS,
     }
 
 

@@ -2,7 +2,7 @@
 
 ## Purple means AI
 
-Everything the AI writes – analyses, research, insights, study plans, transcriptions, the calling guide – appears in **purple** with an **AI** badge. Your own notes are marked in teal with a **You** badge. AI notes can't be edited (so you always know what the AI actually said); use **Copy to my notes** to make an editable copy in your own words.
+Everything the AI writes – analyses, research, insights, study plans, transcriptions, chat replies, the calling guide – appears in **purple** with an **AI** badge. Your own notes are marked in teal with a **You** badge. (Both colours can be changed – see [Appearance](#appearance).) AI notes can't be edited (so you always know what the AI actually said); use **Copy to my notes** to make an editable copy in your own words.
 
 ## Study depth
 
@@ -53,6 +53,17 @@ Pick **Bible passage**, **Topic** or **Area of life**, type your question (or ta
 
 Choose who it's for (small group, individual, meeting, one-to-one, youth, family, class or something else), then optionally passages, theme, group size, session length, number of sessions, format and notes about the people. Leave passages blank to get suggestions. The plan includes passage ideas, aims, a timed run-sheet, leader notes, Observation / Interpretation / Application questions, activities, prayer points and a take-home challenge.
 
+## Bible chat
+
+A conversation rather than a study: talk about anything on your mind – worry, grief, relationships, work, a decision, doubt, or a passage you're reading – and Tolle answers like a wise friend, with Bible passages (always with references) and practical, kind advice. It can offer a short prayer too.
+
+- Open **Bible chat** (the **Chat** tab on phones), tap a suggestion or type your own, and send.
+- Replies keep the whole conversation in mind. Use the ↻ button under the last reply to **ask again** for a different answer, and the copy button to copy a reply.
+- Your conversations are listed on the chat screen and stored encrypted. **Rename** or **Delete** them from the top of a conversation.
+- Replies are tasks, so you can leave the app while one is being written; it's there when you come back.
+
+Tolle is an AI, not a pastor or counsellor. If you mention being in danger or thinking about harming yourself, it will encourage you to get help straight away. In the UK call **999** or Samaritans on **116 123**, or **112** across Europe. The way the chat answers can be changed in **Settings → AI instructions → Bible chat companion**.
+
 ## Calling
 
 1. Optionally write what you'd like to bring to God, or tap a starter.
@@ -80,6 +91,16 @@ AI work can take a few minutes. You don't have to wait on the screen: start a st
 - Finished tasks stay listed for two weeks. Remove one with **×**, or all of them with **Clear finished**.
 - If you use an **on-device** AI model, it can only run while Tolle is open. A task that is waiting for it shows **Continue on this device**.
 - If Tolle (or the app, when it runs on its own) was closed or restarted part-way through, the task shows *Didn't finish*. Run it again.
+
+## Appearance
+
+**Settings → Appearance** changes how Tolle looks on every device you sign in to:
+
+- **Light or dark** – follow the device, or always light or always dark.
+- **Main colour** – buttons, links and highlights. Pick one of the colours, or tap the rainbow circle to choose any colour.
+- **AI colour** – everything the AI writes. Tolle warns you if it's too close to the main colour, so AI notes stay easy to spot.
+
+Changes show straight away and are saved as you make them. **Back to the original colours** undoes everything.
 
 ## Devices & notifications
 

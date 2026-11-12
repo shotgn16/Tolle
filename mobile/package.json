@@ -1,6 +1,6 @@
 {
   "name": "tolle-mobile",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "private": true,
   "description": "Tolle \u2013 Android & iOS apps (Capacitor shell around the Tolle web app)",
   "scripts": {

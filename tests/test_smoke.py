@@ -62,6 +62,27 @@ def test_full_flow():
         assert c.post(f"/api/ai/jobs/{cs['job']}/complete", json={"text": "Welcome"}, headers=H).json()["status"] == "done"
         assert c.get(f"/api/calling/{cs['id']}", headers=H).json()["messages"][0]["role"] == "ai"
 
+        # Bible chat: a conversation, with the guide's instructions, a reply, ask again, rename, delete
+        ch = c.post("/api/chat", json={"content": "I'm anxious about work and can't sleep"}, headers=H).json()
+        job = _wait(c, ch["job"])
+        sent = job["client"]["messages"]
+        assert sent[0]["role"] == "system" and "Bible" in sent[0]["content"] and "Samaritans" in sent[0]["content"]
+        assert sent[-1] == {"role": "user", "content": "I'm anxious about work and can't sleep"}
+        assert job["client"]["max_tokens"] == 8000 and job["client"]["auto_continue"] == 3
+        c.post(f"/api/ai/jobs/{ch['job']}/complete", json={"text": "That sounds heavy. Philippians 4:6–7…"}, headers=H)
+        c.post(f"/api/chat/{ch['id']}/message", json={"content": "Thank you"}, headers=H)
+        convo = c.get(f"/api/chat/{ch['id']}", headers=H).json()
+        assert [m["role"] for m in convo["messages"]] == ["user", "ai", "user"]
+        assert convo["title"] == "I'm anxious about work and can't sleep"
+        assert c.get("/api/chat", headers=H).json()[0]["last"] == "Thank you"
+        tasks = {t["id"]: t for t in c.get("/api/ai/jobs", headers=H).json()}
+        assert tasks[ch["job"]]["link"] == f"#/chat/{ch['id']}" and tasks[ch["job"]]["subject"] == convo["title"]
+        c.post(f"/api/chat/{ch['id']}/retry", json={}, headers=H)
+        c.patch(f"/api/chat/{ch['id']}", json={"title": "Work worries"}, headers=H)
+        assert c.get(f"/api/chat/{ch['id']}", headers=H).json()["title"] == "Work worries"
+        assert c.delete(f"/api/chat/{ch['id']}", headers=H).json()["ok"]
+        assert c.get(f"/api/chat/{ch['id']}", headers=H).status_code == 404
+
         # the Tasks screen lists it, links to the result, and can dismiss it
         tasks = c.get("/api/ai/jobs", headers=H).json()
         t = next(x for x in tasks if x["id"] == cs["job"])

@@ -48,8 +48,15 @@ async function setup(context) {
         chats.push(body);
         if (JSON.stringify(body.messages).includes('SLOWTASK')) await new Promise((r) => setTimeout(r, 5000));
         const last = body.messages[body.messages.length - 1].content;
+        // LONGTASK: the first answer stops at the length limit, the continuation finishes it.
+        const all = JSON.stringify(body.messages);
+        if (all.includes('LONGTASK')) {
+          const continuing = String(last).includes('was cut off');
+          const part = continuing ? 'limit, carried on.\n\n## Application\nThe end.' : '## Overview\nThis first part stops at the length';
+          return route.fulfill({ status: 200, headers: cors, json: { message: { role: 'assistant', content: part }, done: true, done_reason: continuing ? 'stop' : 'length' } });
+        }
         const content = `## Overview\nFake answer number ${chats.length}. The prompt began: ${String(last).slice(0, 60).replace(/\n/g, ' ')}`;
-        return route.fulfill({ status: 200, headers: cors, json: { message: { role: 'assistant', content, thinking: body.think ? 'Considering…' : '' }, done: true } });
+        return route.fulfill({ status: 200, headers: cors, json: { message: { role: 'assistant', content, thinking: body.think ? 'Considering…' : '' }, done: true, done_reason: 'stop' } });
       }
     }
     if (u.hostname === 'bible-api.com') {
@@ -258,6 +265,61 @@ ok((await page.$$('.task-done')).length >= 5, 'finished tasks are still listed a
 if (SHOTS) await page.screenshot({ path: `${SHOTS}/12-tasks.png` });
 await page.click('text=Clear finished');
 await page.waitForSelector('.tasks .empty', { timeout: 10000 }).then(() => ok(true, 'Clear finished empties the list'), () => ok(false, 'Clear finished empties the list'));
+
+console.log('Complete answers');
+const long = await call(`return (await api.runJob('passage_study', { passages: 'Ruth 1', focus: 'LONGTASK' })).result;`);
+const longStudy = await call(`return api.get('api/studies/' + a);`, long.study_id);
+ok(longStudy.entries[0].content === '## Overview\nThis first part stops at the length limit, carried on.\n\n## Application\nThe end.', 'a cut-off answer is continued and joined seamlessly');
+ok(chats[chats.length - 1].messages.slice(-2)[0].role === 'assistant' && /was cut off/.test(chats[chats.length - 1].messages.slice(-1)[0].content), 'continuation sends the answer so far and asks to carry on');
+ok(chats[chats.length - 1].options.num_predict === 8000, 'longest answer setting reaches the model');
+
+console.log('Small instruct models');
+await call(`await api.put('api/settings', { 'ai.prompt_style': 'compact', 'ai.max_output_tokens': 3000 }); return true;`);
+await call(`return (await api.runJob('passage_study', { passages: 'Psalm 1', level: 'intro' })).result;`);
+const compactMsgs = chats[chats.length - 1].messages;
+ok(compactMsgs[1].content.startsWith('<SOURCES>') && /Write the answer now\.$/.test(compactMsgs[1].content.trim()), 'compact prompts put the sources first and the task last');
+ok(/Say each thing once/.test(compactMsgs[0].content) && compactMsgs[0].content.length < 700, 'compact ground rules are short');
+ok(chats[chats.length - 1].options.num_predict === 3000, 'small-model answer length used');
+await call(`await api.put('api/settings', { 'ai.prompt_style': 'auto', 'ai.max_output_tokens': 8000 }); return true;`);
+
+console.log('Bible chat');
+await page.goto(`${ORIGIN}/index.html#/chat`);
+await page.waitForSelector('.chat-welcome', { timeout: 15000 });
+ok((await page.$$('.starters .chip')).length >= 4, 'chat opens with conversation starters');
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/13-chat-welcome.png` });
+await page.click('.starters .chip >> nth=0');
+await page.click('.chat-composer .send');
+await page.waitForSelector('.bubble.ai:not(.typing)', { timeout: 20000 });
+const chatReq = chats[chats.length - 1];
+ok(/Bible/.test(chatReq.messages[0].content) && chatReq.messages[chatReq.messages.length - 1].role === 'user', 'chat sends the companion guide and your message');
+ok(/#\/chat\/\d+$/.test(page.url()), 'the conversation opens');
+await page.fill('.chat-composer textarea', 'Thank you, that helps');
+await page.click('.chat-composer .send');
+await page.waitForFunction(() => document.querySelectorAll('.bubble.ai:not(.typing)').length === 2, null, { timeout: 20000 });
+const roles = chats[chats.length - 1].messages.map((m) => m.role).join(',');
+ok(roles === 'system,user,assistant,user', `the whole conversation is sent (${roles})`);
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/14-chat.png` });
+const thread = await call(`return (await api.get('api/chat'))[0];`);
+ok(thread.title.startsWith('I’m feeling anxious') || thread.title.startsWith("I'm feeling anxious"), 'conversation is named from the first message');
+
+console.log('Appearance');
+await page.goto(`${ORIGIN}/index.html#/settings?tab=appearance`);
+await page.waitForSelector('.swatches', { timeout: 15000 });
+await page.click('.swatches >> nth=0 >> [aria-label="Blue"]');
+await page.click('.seg >> text=Dark');
+await page.waitForTimeout(600);
+const look = await page.evaluate(() => ({ brand: getComputedStyle(document.documentElement).getPropertyValue('--brand').trim(), mode: document.documentElement.dataset.theme }));
+ok(look.mode === 'dark' && look.brand && look.brand !== '#2bb5a8', `colour and dark mode apply straight away (${look.brand})`);
+if (SHOTS) await page.screenshot({ path: `${SHOTS}/15-appearance.png` });
+const saved = await call(`return (await api.get('api/settings')).values;`);
+ok(saved['ui.accent'] === '#1d4ed8' && saved['ui.theme'] === 'dark', 'appearance is saved');
+await page.click('.swatches >> nth=1 >> [aria-label="Blue"]');
+await page.waitForTimeout(200);
+ok(await page.isVisible('.hint.warn'), 'warns when the AI colour is too close to the main colour');
+await page.reload();
+await page.waitForSelector('.page-head', { timeout: 15000 });
+ok(await page.evaluate(() => document.documentElement.dataset.theme) === 'dark', 'colours stay after restarting');
+await call(`await api.put('api/settings', { 'ui.theme': 'auto', 'ui.accent': '#0f766e', 'ui.ai_colour': '#7c3aed' }); return true;`);
 
 console.log('Screens');
 for (const [hash, name, sel] of [['#/', '02-home', '.page-head'], [`#/study/${study.study_id}`, '03-study', '.note.ai'],

@@ -32,7 +32,7 @@ from fastapi import APIRouter
 log = logging.getLogger("tolle.features")
 
 # Order = order in the API listing. Remove an id to switch a feature off.
-ENABLED = ["library", "research", "insights", "builder", "calling", "reading"]
+ENABLED = ["library", "research", "insights", "builder", "chat", "calling", "reading"]
 
 
 @dataclass

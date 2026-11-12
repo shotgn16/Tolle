@@ -303,7 +303,7 @@ async function doWork(step) {
     }
     await step(`Downloading ${rec.text_model}…`, () => t.run(['ollama', 'pull', rec.text_model]));
     if (state.vision) await step(`Downloading ${rec.vision_model}…`, () => t.run(['ollama', 'pull', rec.vision_model]));
-    aiArgs.push('--ai-provider', 'ollama', '--ollama-url', 'http://127.0.0.1:11434', '--ai-model', rec.text_model, '--context', String(rec.context || 16384));
+    aiArgs.push('--ai-provider', 'ollama', '--ollama-url', 'http://127.0.0.1:11434', '--ai-model', rec.text_model, '--context', String(rec.context || 16384), ...(rec.small ? ['--small-model'] : []));
   }
   const configure = ['configure', '--mode', m, '--port', String(m === 'personal' ? 8099 : state.port), ...aiArgs];
   if (m === 'server') {
@@ -353,8 +353,8 @@ async function accountAndAI(step, url, { local, dockerOllama = false }) {
 
   const rec = state.info?.recommend || {};
   let values = null;
-  if (dockerOllama) values = { 'ai.provider': 'ollama', 'ollama.url': 'http://ollama:11434', 'ai.model': rec.text_model || 'qwen3:4b' };
-  else if (state.ai === 'install' && local) values = { 'ai.provider': 'ollama', 'ollama.url': 'http://127.0.0.1:11434', 'ai.model': rec.text_model, 'ollama.num_ctx': rec.context || 16384 };
+  if (dockerOllama) values = { 'ai.provider': 'ollama', 'ollama.url': 'http://ollama:11434', 'ai.model': rec.text_model || 'qwen3:4b', ...(rec.settings || {}) };
+  else if (state.ai === 'install' && local) values = { 'ai.provider': 'ollama', 'ollama.url': 'http://127.0.0.1:11434', 'ai.model': rec.text_model, 'ollama.num_ctx': rec.context || 16384, ...(rec.settings || {}) };
   else if (state.ai === 'ollama') values = { 'ai.provider': 'ollama', 'ollama.url': state.ollamaUrl.replace(/\/+$/, ''), 'ai.model': state.ollamaModel };
   else if (state.ai === 'cloud' && state.cloudKey) values = { 'ai.provider': state.cloud, [`${state.cloud}.key`]: state.cloudKey };
   if (!values) return token;

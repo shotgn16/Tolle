@@ -18,9 +18,9 @@
 > *Tolle lege, tolle lege* – “Take up and read, take up and read.”
 > Augustine heard a child's voice singing these words, picked up the Scriptures, and his life changed (*Confessions*, Book VIII).
 
-Tolle helps you study Scripture carefully, with good sources, checking everything against the text. It reads your own notes, researches passages on trusted study sites, helps you plan studies for groups, walks with you in prayerful reflection on your calling, and tracks your time in the Word.
+Tolle helps you study Scripture carefully, with good sources, checking everything against the text. It reads your own notes, researches passages on trusted study sites, helps you plan studies for groups, talks with you about life with wisdom from the Bible, walks with you in prayerful reflection on your calling, and tracks your time in the Word.
 
-**Everything the AI writes is shown in purple**, so you always know what is yours and what is the AI's.
+**Everything the AI writes is shown in purple** (or a colour you choose), so you always know what is yours and what is the AI's. Works with large cloud models and small local ones on modest hardware.
 
 <p align="center"><img src="docs/images/study.png" alt="A passage study: the AI's notes in purple above the user's own note" width="760"></p>
 
@@ -59,6 +59,7 @@ It can also install a free, private AI model for you (Ollama), or connect ChatGP
 | **Passage study** | Passages plus a word, sentence or topic, at the depth you choose (Introduction, Study, Preach / Teach, In-depth) and for the purpose you choose (personal, home group, preaching, teaching, youth, word study, one-to-one). |
 | **Insights** | A passage, a topic, or an area of life seen through Scripture. |
 | **Study builder** | Plans for a group, a person or a meeting: passage ideas, a timed format, leader's notes and questions. |
+| **Bible chat** | Talk about anything on your mind – worry, grief, decisions, faith – and get warm, honest answers with Bible references. |
 | **Calling** | A guided time of prayer, Scripture and reflection that listens to what you share and assumes nothing. |
 | **Reading tracker** | A Bible reader that logs your time and chapters, reminders, streaks, and time in the YouVersion app. |
 | **Any AI** | Ollama, ChatGPT, Gemini, Claude, any OpenAI-compatible server, or a model that runs on your device. Choose the model per request and switch "thinking" on or off. |

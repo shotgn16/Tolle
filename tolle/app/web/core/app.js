@@ -3,6 +3,7 @@
 import { get, isNative, mode, post, serverUrl, setServerUrl, signedIn, token, ApiError } from './api.js';
 import { BRAND } from './brand.js';
 import { icon } from './icons.js';
+import { applyRemembered, applyTheme, themeFromSettings } from './theme.js';
 import { activeFeatures, setEnabled } from './registry.js';
 import { h, toast, errToast, loadSettings, state, field } from './ui.js';
 import * as dashboard from './views/dashboard.js';
@@ -98,10 +99,7 @@ function showShell(on) {
   document.getElementById('tabbar').hidden = !on;
 }
 
-function applyTheme(t) {
-  if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
-  else delete document.documentElement.dataset.theme;
-}
+applyRemembered();   // the colours used last time, before settings arrive
 
 export function refreshChip() {
   const s = state.settings;
@@ -248,7 +246,7 @@ async function start() {
     view.replaceChildren(h('div', { class: 'card' }, e.message));
     return;
   }
-  applyTheme(state.settings['ui.theme']);
+  applyTheme(themeFromSettings(state.settings));
   try { setEnabled((await get('api/features')).filter((f) => f.enabled !== false).map((f) => f.id)); } catch { /* older server: show all */ }
   buildNav();
   showShell(true);
@@ -260,7 +258,7 @@ async function start() {
 window.addEventListener('hashchange', () => { if (signedIn()) route(); });
 window.addEventListener('tolle:mode', () => { loops.forEach(clearInterval); featureStops.forEach((s) => s && s()); start(); });
 window.addEventListener('tolle:logout', () => { loops.forEach(clearInterval); featureStops.forEach((s) => s && s()); authScreen(); });
-window.addEventListener('tolle:settings', () => { applyTheme(state.settings['ui.theme']); refreshChip(); });
+window.addEventListener('tolle:settings', () => { applyTheme(themeFromSettings(state.settings)); refreshChip(); });
 document.getElementById('menu-btn').addEventListener('click', openMenu);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
 buildNav();

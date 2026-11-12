@@ -45,6 +45,7 @@ def _parser() -> argparse.ArgumentParser:
     c.add_argument("--ollama-url")
     c.add_argument("--ai-model")
     c.add_argument("--context", type=int)
+    c.add_argument("--small-model", action="store_true", help="use the settings for small instruct models")
 
     sv = sub.add_parser("service", help="run in the background and start automatically")
     sv.add_argument("action", choices=["install", "uninstall", "status"])
@@ -125,6 +126,9 @@ def cmd_configure(args, rep) -> dict:
         defaults["ollama.url"] = args.ollama_url
     if args.ai_model:
         defaults["ai.model"] = args.ai_model
+    if args.small_model:
+        from .core.settings import SMALL_MODEL_SETTINGS
+        defaults.update(SMALL_MODEL_SETTINGS)
     if args.context:
         defaults["ollama.num_ctx"] = args.context
     values = {"mode": args.mode, "port": args.port, "host": "127.0.0.1" if args.mode == "personal" else "0.0.0.0"}

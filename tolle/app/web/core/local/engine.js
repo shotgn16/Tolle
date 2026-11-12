@@ -144,7 +144,7 @@ async function unpackBackup(text, password) {
 
 // ---------------------------------------------------------------- start-up
 const COLLECTIONS = ['jobs', 'settings', 'instructions', 'features', 'studies', 'entries', 'files', 'source_cache',
-  'calling_sessions', 'calling_messages', 'reading_sessions', 'app_sessions'];
+  'calling_sessions', 'calling_messages', 'chat_threads', 'chat_messages', 'reading_sessions', 'app_sessions'];
 
 export function start(featureDefs) {
   if (!ready) {

@@ -24,7 +24,7 @@ from fastapi import HTTPException
 
 from . import db, settings
 from .ai import prompts, repetition
-from .ai.providers import AIError, chat
+from .ai.providers import AIError, chat, out_tokens
 from .bible import parse_refs
 from .crypto import dec, dec_json, enc
 
@@ -85,7 +85,7 @@ def suggest_refs(cfg, provider, model, subject: str, n: int = 5) -> list[dict]:
 
 
 def system_message(cfg) -> dict:
-    return {"role": "system", "content": prompts.system_base(cfg.get("study.perspective") or "")}
+    return {"role": "system", "content": prompts.system_base(cfg.get("study.perspective") or "", prompts.compact(cfg))}
 
 
 def source_meta(results) -> list[dict]:
@@ -134,14 +134,16 @@ def _run(job_id: int, user_id: int, kind: str, params: dict) -> None:
         provider, model, thinking = ai_choice(cfg, params)
         params.update(_provider=provider, _model=model, _thinking=thinking)
         messages, images, meta = prep(user_id, params, cfg, lambda m: _set(job_id, progress=m))
+        messages = prompts.adapt_messages(cfg, messages)
         if provider == "ondevice":
             _set(job_id, status="client", progress="Waiting for on-device model…",
                  params_enc=enc({**params, "_meta": meta}),
-                 messages_enc=enc({"messages": messages, "model": model, "thinking": thinking}))
+                 messages_enc=enc({"messages": messages, "model": model, "thinking": thinking,
+                                   "max_tokens": out_tokens(cfg), "auto_continue": int(cfg.get("ai.auto_continue", 3) or 0)}))
             return
         _set(job_id, progress=f"Thinking with {model}…" if thinking else f"Writing with {model}…")
         out = chat(cfg, provider, model, messages, images=images, thinking=thinking,
-                   temperature=float(cfg.get("ai.temperature") or 0.6))
+                   temperature=float(cfg.get("ai.temperature") or 0.6), progress=lambda m: _set(job_id, progress=m))
         if not out["text"]:
             raise AIError("The model returned an empty answer.")
         result = fin(user_id, params, meta, out["text"], out.get("thinking", ""), model)
@@ -173,6 +175,10 @@ def _subject(user_id: int, params: dict) -> str:
         r = db.q1("SELECT title_enc FROM studies WHERE id=? AND user_id=?", (params["study_id"], user_id))
         if r:
             return _plain(r["title_enc"])[:120]
+    if params.get("thread_id"):
+        r = db.q1("SELECT title_enc FROM chat_threads WHERE id=? AND user_id=?", (params["thread_id"], user_id))
+        if r:
+            return _plain(r["title_enc"])[:120]
     if params.get("session_id"):
         r = db.q1("SELECT title_enc FROM calling_sessions WHERE id=? AND user_id=?", (params["session_id"], user_id))
         if r:
@@ -189,6 +195,9 @@ def _plain(value) -> str:
 
 def _link(kind: str, params: dict, result: dict | None) -> str:
     res = result or {}
+    if res.get("thread_id") or kind.startswith("chat"):
+        tid = res.get("thread_id") or params.get("thread_id")
+        return f"#/chat/{tid}" if tid else ""
     if res.get("session_id") or kind.startswith("calling"):
         sid = res.get("session_id") or params.get("session_id")
         return f"#/calling/{sid}" if sid else ""

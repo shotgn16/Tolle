@@ -52,10 +52,13 @@ DEFAULTS: dict[str, Any] = {
     "ai.thinking": False,
     "ai.temperature": 0.6,
     "ai.context_chars": 24000,        # budget of source text sent to the model
+    "ai.max_output_tokens": 8000,     # longest answer (tokens) before Tolle asks the model to keep going
+    "ai.auto_continue": 3,            # how many times to continue an answer that hit the length limit
+    "ai.prompt_style": "auto",        # auto | full | compact (small instruct models); auto = compact on-device
+    "ai.repeat_penalty": 1.12,        # Ollama: discourages repeating itself
     "ai.vision_transcribe": True,     # use a vision model to read handwritten/image notes
     "ollama.url": "http://homeassistant.local:11434",
     "ollama.num_ctx": 16384,           # largest context window Tolle will ask Ollama for
-    "ollama.max_output_tokens": 6000,  # longest answer
     "openai.key": "",
     "openai.base_url": "https://api.openai.com/v1",
     "gemini.key": "",
@@ -71,10 +74,19 @@ DEFAULTS: dict[str, Any] = {
     "notify.ha_token": "",             # Docker installs: long-lived access token
     "notify.ha_services": [],          # e.g. ["mobile_app_pixel_8"]
     "api.key": "",                     # personal key for Shortcuts / share sheet (X-Api-Key header)
-    "ui.theme": "auto",
+    "ui.theme": "auto",               # auto | light | dark
+    "ui.accent": "#0f766e",           # main colour (Settings → Appearance)
+    "ui.ai_colour": "#7c3aed",        # colour of everything the AI writes
 }
 
 DEFAULTS.update({k: v for k, v in SERVER_DEFAULTS.items() if k in DEFAULTS or "." in k})
+
+# Good values for small instruct models on modest hardware (Settings → AI → "Small model" fills these in;
+# the installers use them on computers with less than 20 GB of memory). Every value can still be changed.
+SMALL_MODEL_SETTINGS: dict[str, Any] = {
+    "ai.prompt_style": "compact", "ai.max_output_tokens": 3000, "ai.auto_continue": 2, "ai.context_chars": 6000,
+    "ai.temperature": 0.4, "ai.repeat_penalty": 1.15, "ollama.num_ctx": 8192, "ai.thinking": False,
+}
 
 SECRET_KEYS = {"openai.key", "gemini.key", "anthropic.key", "compat.key", "notify.ha_token", "api.key"}
 

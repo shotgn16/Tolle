@@ -94,7 +94,7 @@ def run(preset_mode: str | None = None) -> None:
             if yes(f"Also download {rec['vision_model']} to read photos of handwritten notes?", False):
                 ollama.pull(rec["vision_model"], rep)
             ai = {"ai.provider": "ollama", "ollama.url": ollama.DEFAULT_URL, "ai.model": rec["text_model"],
-                  "ollama.num_ctx": rec["context"]}
+                  **rec["settings"]}
 
         data_dir = system.system_data_dir() if mode == "server" else system.user_data_dir()
         from ..core.config import save_server_config

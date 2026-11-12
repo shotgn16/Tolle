@@ -1,5 +1,6 @@
 import { icon } from '../icons.js';
 import { del, get, isNative, mode, patch, post, put, saveOrShare, serverUrl, setServerUrl, token } from '../api.js';
+import * as THEME from '../theme.js';
 import { ensureModel, webgpuAvailable } from '../ondevice.js';
 import {
   confirmDialog, errToast, fetchModels, field, fmtDate, h, loadSettings, modal, saveSettings, segmented, state, switchEl, toast, mount,
@@ -9,7 +10,8 @@ import { activeFeatures } from '../registry.js';
 // Core tabs. Features add their own tabs (see web/features/<id>/index.js → settingsTabs).
 const CORE_TABS = [
   ['ai', 'AI', aiTab], ['sources', 'Sources', sourcesTab], ['notify', 'Devices & notifications', notifyTab],
-  ['study', 'Bible & study', studyTab], ['account', 'Account', accountTab], ['about', 'About & security', aboutTab],
+  ['study', 'Bible & study', studyTab], ['appearance', 'Appearance', appearanceTab], ['account', 'Account', accountTab],
+  ['about', 'About & security', aboutTab],
 ];
 
 // Only administrators see these.
@@ -100,10 +102,12 @@ async function instructionsTab(root) {
 function aiTab(root) {
   const s = state.settings;
   const vals = {};
+  const els = {};   // inputs by setting, so a preset can fill them in
   const set = (k) => (v) => { vals[k] = v; };
-  const inp = (k, type = 'text', ph = '') => {
-    const el = h('input', { type, value: s[k] ?? '', placeholder: ph, autocomplete: 'off' });
+  const inp = (k, type = 'text', ph = '', extra = {}) => {
+    const el = h('input', { type, value: vals[k] ?? s[k] ?? '', placeholder: ph, autocomplete: 'off', ...extra });
     el.addEventListener('input', () => { vals[k] = type === 'number' ? +el.value : el.value; });
+    els[k] = el;
     return el;
   };
 
@@ -119,7 +123,8 @@ function aiTab(root) {
     h('div', { class: 'grid two' },
       field('Context window (tokens)', inp('ollama.num_ctx', 'number'),
         'How much the model can hold at once. 16384 suits most studies; lower it to 8192 on an 8 GB machine, raise it for In-depth studies on bigger ones.'),
-      field('Longest answer (tokens)', inp('ollama.max_output_tokens', 'number'), 'About 0.75 words per token.'))],
+      field('Repetition penalty', inp('ai.repeat_penalty', 'number', '1.12', { step: '0.01', min: '1', max: '2' }),
+        'Higher stops a model repeating itself; 1.10–1.20 suits most. Too high makes writing odd.'))],
     openai: () => [field('OpenAI API key', inp('openai.key', 'password', 'sk-…')),
       field('API base URL', inp('openai.base_url', 'url'), 'Leave as default unless you use Azure or a proxy.')],
     gemini: () => [field('Gemini API key', inp('gemini.key', 'password'), 'Create one at aistudio.google.com.')],
@@ -173,7 +178,11 @@ function aiTab(root) {
   const modelBlock = h('div', {}, field('Default model', h('div', { class: 'row' }, h('div', { class: 'grow' }, modelSel),
       h('button', { class: 'small', onclick: async () => { await save(vals, 'Saved – refreshing models'); loadModels(); } }, icon('refresh', 15), 'Save and refresh')),
     h('div', {}, modelManual, modelStatus)));
-  const think = switchEl('Thinking mode on by default', s['ai.thinking'], set('ai.thinking'));
+  let thinkOn = !!s['ai.thinking'];
+  const thinkWrap = h('div');
+  const drawThink = () => thinkWrap.replaceChildren(switchEl('Thinking mode on by default', thinkOn, (v) => { thinkOn = v; vals['ai.thinking'] = v; }));
+  drawThink();
+  const think = thinkWrap;
   const vision = switchEl('Transcribe uploaded images & scanned PDFs with AI automatically', s['ai.vision_transcribe'], set('ai.vision_transcribe'));
 
   root.append(h('div', { class: 'card' },
@@ -182,13 +191,50 @@ function aiTab(root) {
     providerFields,
     modelBlock,
     field('Thinking', think, 'Models that support it (qwen3, deepseek-r1, gpt-oss, o-series/GPT-5, Gemini 2.5+, Claude) reason before answering – slower but often deeper. You can also toggle it per request.'),
-    h('div', { class: 'grid two' },
-      field('Creativity (temperature)', inp('ai.temperature', 'number'), '0.2 = focused, 1.0 = creative'),
-      field('Source text budget (characters)', inp('ai.context_chars', 'number'), 'How much research text is sent to the model. Lower for small local models.')),
     field('Image notes', vision, 'Needs a vision-capable model (e.g. gemma3, llava, qwen2.5-vl in Ollama; GPT-4o/5; Gemini; Claude).'),
     h('button', { class: 'primary', onclick: () => save(vals) }, 'Save AI settings')));
+
+  // ---- answers and model size
+  const style = h('select', {}, [['auto', 'Automatic – compact for on-device models'], ['full', 'Detailed – for larger models'],
+    ['compact', 'Compact – for small instruct models (1–8B)']].map(([v, l]) => h('option', { value: v, selected: v === (s['ai.prompt_style'] || 'auto') }, l)));
+  style.addEventListener('change', () => { vals['ai.prompt_style'] = style.value; });
+  const applied = h('div', { class: 'hint' });
+  const apply = (name, values) => {
+    for (const [k, v] of Object.entries(values)) {
+      vals[k] = v;
+      if (els[k]) els[k].value = v;
+    }
+    style.value = values['ai.prompt_style'];
+    if ('ai.thinking' in values) { thinkOn = values['ai.thinking']; drawThink(); }
+    applied.textContent = `${name} settings filled in below – change anything you like, then press Save.`;
+  };
+  root.append(h('div', { class: 'card' },
+    h('h3', {}, 'Answers and model size'),
+    h('p', { class: 'muted' }, 'Small models (for example Llama 3.2 3B, Qwen 3 4B or Gemma 3 4B on a modest computer, or any model on a phone) do best with short, clear prompts and less text at once. Pick the size that matches your model to fill in good values, then adjust anything.'),
+    h('div', { class: 'row' },
+      h('button', { class: 'small', onclick: () => apply('Larger model', PRESETS.large) }, 'Larger model (cloud, or 14B+)'),
+      h('button', { class: 'small', onclick: () => apply('Small model', PRESETS.small) }, 'Small model (1–8B, low-end computer)')),
+    applied,
+    field('Prompt style', style, 'Compact sends shorter instructions, puts the study sites before the task, and asks for focused sections. Detailed gives larger models more guidance.'),
+    h('div', { class: 'grid two' },
+      field('Longest answer (tokens)', inp('ai.max_output_tokens', 'number', '8000', { min: '256', step: '256' }),
+        'About ¾ of a word per token. If an answer reaches this, Tolle asks the model to carry on.'),
+      field('Keep going (times)', inp('ai.auto_continue', 'number', '3', { min: '0', max: '8' }),
+        'How many times Tolle continues an answer that was cut off. 0 turns it off.'),
+      field('Source text budget (characters)', inp('ai.context_chars', 'number', '24000', { min: '1000', step: '1000' }),
+        'How much study-site and Bible text is sent with each request. Lower it for small models.'),
+      field('Creativity (temperature)', inp('ai.temperature', 'number', '0.6', { step: '0.05', min: '0', max: '1.5' }), '0.2 = focused, 1.0 = creative. Small models do better a little lower.')),
+    h('button', { class: 'primary', onclick: () => save(vals) }, 'Save')));
   loadModels();
 }
+
+// Recommended values for each model size (Settings → AI → Answers and model size). All can be changed.
+const PRESETS = {
+  large: { 'ai.prompt_style': 'full', 'ai.max_output_tokens': 8000, 'ai.auto_continue': 3, 'ai.context_chars': 24000,
+    'ai.temperature': 0.6, 'ai.repeat_penalty': 1.12, 'ollama.num_ctx': 16384 },
+  small: { 'ai.prompt_style': 'compact', 'ai.max_output_tokens': 3000, 'ai.auto_continue': 2, 'ai.context_chars': 6000,
+    'ai.temperature': 0.4, 'ai.repeat_penalty': 1.15, 'ollama.num_ctx': 8192, 'ai.thinking': false },
+};
 
 // ---------------------------------------------------------------- sources
 function sourcesTab(root) {
@@ -364,13 +410,74 @@ function studyTab(root) {
   const persp = h('input', { value: s['study.perspective'], placeholder: 'e.g. Evangelical Anglican, Baptist, Reformed, Catholic, Pentecostal' });
   persp.addEventListener('input', () => { vals['study.perspective'] = persp.value; });
   const level = segmented(Object.entries(state.levels), s['study.default_level'], (v) => { vals['study.default_level'] = v; });
-  const theme = segmented([['auto', 'Match device'], ['light', 'Light'], ['dark', 'Dark']], s['ui.theme'], (v) => { vals['ui.theme'] = v; });
   root.append(h('div', { class: 'card' },
     field('Bible translation (for reading and for the AI)', tr, 'Public-domain translations from bible-api.com.'),
     field('Your tradition (optional)', persp, 'Helps the AI use familiar language. It will still show other faithful views.'),
     field('Default study depth', level),
-    field('Theme', theme),
     h('button', { class: 'primary', onclick: () => save(vals) }, 'Save')));
+}
+
+// ---------------------------------------------------------------- appearance
+// Changes show straight away and are saved as you make them.
+function appearanceTab(root) {
+  const s = state.settings;
+  let cur = { mode: s['ui.theme'] || 'auto', accent: s['ui.accent'] || THEME.DEFAULTS.accent, ai: s['ui.ai_colour'] || THEME.DEFAULTS.ai };
+  const warn = h('p', { class: 'hint warn', hidden: true }, 'Your main colour and the AI colour look alike, so AI notes are harder to tell apart from your own. Choose colours further apart.');
+  let timer = null;
+  const pending = {};
+  const commit = (key, value) => {
+    THEME.applyTheme(cur);
+    warn.hidden = !THEME.tooClose(cur.accent, cur.ai);
+    pending[key] = value;
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const changes = { ...pending };
+      for (const k of Object.keys(pending)) delete pending[k];
+      put('api/settings', changes).then(() => Object.assign(s, changes)).catch(errToast);
+    }, 350);
+  };
+
+  const swatches = (list, current, onPick, label) => {
+    const wrap = h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': label });
+    const custom = h('input', { type: 'color', value: current, 'aria-label': `${label}: your own colour`, title: 'Your own colour' });
+    const draw = (value) => {
+      const known = list.some(([, , c]) => c === value.toLowerCase());
+      wrap.replaceChildren(...list.map(([id, name, c]) => h('button', {
+        type: 'button', class: `swatch${c === value.toLowerCase() ? ' on' : ''}`, role: 'radio', 'aria-checked': String(c === value.toLowerCase()),
+        title: name, 'aria-label': name, style: { '--c': c }, onclick: () => { onPick(c); draw(c); custom.value = c; },
+      })), h('label', { class: `swatch custom${known ? '' : ' on'}`, title: 'Your own colour', style: { '--c': value } }, custom, icon('plus', 14)));
+    };
+    custom.addEventListener('input', () => { onPick(custom.value); draw(custom.value); });
+    draw(current);
+    return wrap;
+  };
+
+  const mode = segmented([['auto', 'Match device'], ['light', 'Light'], ['dark', 'Dark']], cur.mode, (v) => { cur.mode = v; commit('ui.theme', v); });
+  const accent = swatches(THEME.ACCENTS, cur.accent, (c) => { cur.accent = c; commit('ui.accent', c); }, 'Main colour');
+  const ai = swatches(THEME.AI_COLOURS, cur.ai, (c) => { cur.ai = c; commit('ui.ai_colour', c); }, 'AI colour');
+  warn.hidden = !THEME.tooClose(cur.accent, cur.ai);
+
+  const preview = h('div', { class: 'theme-preview' },
+    h('div', { class: 'row' }, h('button', { class: 'primary', type: 'button', tabindex: -1 }, 'Save'), h('span', { class: 'chip' }, 'A chip'),
+      h('a', { href: '#/settings?tab=appearance', onclick: (e) => e.preventDefault() }, 'A link')),
+    h('div', { class: 'bubble user' }, 'Something you wrote'),
+    h('article', { class: 'note ai' }, h('div', { class: 'note-head' }, h('span', { class: 'badge-ai' }, icon('insights', 13), 'AI'), h('span', { class: 'title' }, 'An AI note')),
+      h('div', { class: 'prose' }, h('p', {}, 'Anything the AI writes is shown in this colour, so it’s always clear what came from you and what came from the AI.'))));
+
+  root.append(h('div', { class: 'card' },
+    field('Light or dark', mode),
+    field('Main colour', accent, 'Buttons, links and highlights.'),
+    field('AI colour', ai, 'Everything the AI writes. Keep it different from the main colour.'),
+    warn,
+    h('div', { class: 'row', style: { marginTop: '6px' } },
+      h('button', { class: 'small ghost', onclick: () => {
+        cur = { ...THEME.DEFAULTS };
+        THEME.applyTheme(cur);
+        put('api/settings', { 'ui.theme': 'auto', 'ui.accent': THEME.DEFAULTS.accent, 'ui.ai_colour': THEME.DEFAULTS.ai })
+          .then(() => { Object.assign(s, { 'ui.theme': 'auto', 'ui.accent': THEME.DEFAULTS.accent, 'ui.ai_colour': THEME.DEFAULTS.ai }); root.replaceChildren(); appearanceTab(root); })
+          .catch(errToast);
+      } }, 'Back to the original colours'))),
+  h('div', { class: 'card' }, h('h3', {}, 'Preview'), preview));
 }
 
 // ---------------------------------------------------------------- account

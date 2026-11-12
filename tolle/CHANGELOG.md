@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.4.0
+
+**Answers are no longer cut off**
+- When an answer reaches the model's length limit, Tolle asks it to carry on from exactly where it stopped
+  and joins the parts seamlessly (up to 3 times by default). Works with Ollama, ChatGPT, Gemini, Claude,
+  OpenAI-compatible servers and on-device models.
+- Gemini gets room for both its thinking and the answer, which was the most common cause of cut-off studies.
+- New settings: **Longest answer** and **Keep going** (Settings → AI → Answers and model size).
+
+**Bible chat**
+- Talk about life, faith or a passage and get warm, honest answers with Bible references – a
+  conversation, not a study. Conversation starters, ask again, copy, rename and delete.
+- Works with a server and on a phone on its own; replies carry on in the background like other tasks.
+- Clear guidance and crisis numbers if someone is struggling. The chat's instructions can be edited.
+
+**Small instruct models and modest computers**
+- **Compact** prompt style for small models: short rules, sources before the task, focused sections.
+- One-tap **Small model** and **Larger model** settings; every value stays editable.
+- **Automatic** prompt style uses compact prompts for on-device models. The installers choose small-model
+  settings on computers with less than 20 GB of memory.
+- New **Repetition penalty** setting for Ollama.
+
+**Appearance**
+- New **Settings → Appearance**: light, dark or match the device; choose the main colour and the AI colour
+  from presets or any colour. A warning appears if the two are too alike. Shows instantly when the app opens.
+
 ## 0.3.2
 
 - Phones and tablets: the menu no longer slides up under the status bar (clock and battery), and

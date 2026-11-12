@@ -10,7 +10,7 @@ The Tolle app for Android, iPhone and iPad works in one of two ways. You choose 
 | AI | On the phone, Ollama, ChatGPT, Gemini or Claude | Whatever the server uses (or on the phone) |
 | Best for | One person, one phone or tablet | Several devices or several people |
 
-Everything in Tolle works in both: study notes and uploads, passage study, insights, the study builder, calling, the Bible reader, the reading tracker and reminders.
+Everything in Tolle works in both: study notes and uploads, passage study, insights, the study builder, Bible chat, calling, the Bible reader, the reading tracker and reminders.
 
 ## Android
 
@@ -47,7 +47,7 @@ Works on iOS and iPadOS 15 and newer.
 
 Tap **On this device only**. Tolle opens **Settings → AI** so you can choose which AI writes your studies:
 
-- **On-device** – the AI runs on the phone or tablet itself. Pick a model, tap **Download & test on this device**, and wait for the one-off download (about 1–2 GB, use Wi-Fi). After that it works with no internet. It needs a recent device with a capable graphics chip (for example iPhone 15 Pro or newer on iOS 26, or a recent Android flagship); if yours can't, Tolle says so – choose one of the options below instead. On-device models are smaller, so their studies are shorter and simpler.
+- **On-device** – the AI runs on the phone or tablet itself. Pick a model, tap **Download & test on this device**, and wait for the one-off download (about 1–2 GB, use Wi-Fi). After that it works with no internet. It needs a recent device with a capable graphics chip (for example iPhone 15 Pro or newer on iOS 26, or a recent Android flagship); if yours can't, Tolle says so – choose one of the options below instead. On-device models are smaller, so their studies are shorter and simpler; Tolle automatically uses its compact prompts for them (see [Small models](ai.md#small-models-and-modest-computers)).
 - **Ollama** – a free AI on a computer at home. Choose **Ollama**, enter its address (e.g. `http://192.168.1.20:11434`) and pick a model. On that computer, Ollama must accept connections from other devices: set `OLLAMA_HOST=0.0.0.0` (the [AI guide](ai.md) shows how).
 - **ChatGPT, Gemini or Claude** – choose the provider, paste an **API key** from its website, and pick a model. You pay the provider for what you use (usually a few pence per study).
 

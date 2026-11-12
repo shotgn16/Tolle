@@ -22,7 +22,7 @@ const SIZES = [
   ['ipad-landscape', { ...devices['iPad (gen 7) landscape'] }],
   ['android-small', { ...devices['Galaxy S9+'] }],
 ];
-const ROUTES = ['#/', '#/bible', '#/tracker', '#/notes', '#/research', '#/insights', '#/builder', '#/calling', '#/tasks',
+const ROUTES = ['#/', '#/bible', '#/tracker', '#/notes', '#/research', '#/insights', '#/builder', '#/calling', '#/tasks', '#/chat', '#/settings?tab=appearance',
   '#/settings?tab=ai', '#/settings?tab=sources', '#/settings?tab=notify', '#/settings?tab=reading', '#/settings?tab=bible',
   '#/settings?tab=features', '#/settings?tab=instructions', '#/settings?tab=account', '#/settings?tab=about'];
 

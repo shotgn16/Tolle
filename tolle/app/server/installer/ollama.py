@@ -28,8 +28,12 @@ def recommend() -> dict:
         text = "qwen3:8b"
     else:
         text = "qwen3:14b"
+    small = ram < 20   # 4B/8B models: use the compact prompts and settings for small models
+    from ..core.settings import SMALL_MODEL_SETTINGS
+    settings = dict(SMALL_MODEL_SETTINGS) if small else {}
+    settings["ollama.num_ctx"] = 8192 if ram < 10 else 16384
     return {"ram_gb": round(ram, 1), "text_model": text, "vision_model": "gemma3:4b",
-            "context": 8192 if ram < 10 else 16384}
+            "context": settings["ollama.num_ctx"], "small": small, "settings": settings}
 
 
 def running(url: str = DEFAULT_URL) -> str | None:

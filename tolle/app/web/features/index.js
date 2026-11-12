@@ -8,6 +8,7 @@ import library from './library/index.js';
 import research from './research/index.js';
 import insights from './insights/index.js';
 import builder from './builder/index.js';
+import chat from './chat/index.js';
 import calling from './calling/index.js';
 
-export default [reading, library, research, insights, builder, calling];
+export default [reading, library, chat, research, insights, builder, calling];
